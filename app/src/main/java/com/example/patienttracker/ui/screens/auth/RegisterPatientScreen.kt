@@ -9,6 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import android.widget.Toast
+import com.example.patienttracker.data.PatientAccountStorage
+
 
 @Composable
 fun RegisterPatientScreen(navController: NavController, context: Context) {
@@ -94,8 +97,28 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
 
             Button(
                 onClick = {
-                    // TODO: You can add validation or backend call here
-                    navController.navigate("patient_home") // for now, go to a placeholder page
+                    when {
+                        firstName.isBlank() || lastName.isBlank() || email.isBlank() ||
+                                phone.isBlank() || password.isBlank() || confirmPassword.isBlank() -> {
+                            Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                        }
+                        password != confirmPassword -> {
+                            Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
+                        }
+                        password.length < 8 || !password.any { it.isDigit() } || !password.any { it.isUpperCase() } -> {
+                            Toast.makeText(context, "Password must be at least 8 characters, include a number and uppercase letter", Toast.LENGTH_LONG).show()
+                        }
+                        PatientAccountStorage.isDuplicate(context, email, phone) -> {
+                            Toast.makeText(context, "Email or phone already registered", Toast.LENGTH_SHORT).show()
+                        }
+                        else -> {
+                            val newId = PatientAccountStorage.addAccount(context, firstName, lastName, email, phone, password)
+                            Toast.makeText(context, "Account created successfully! Your Patient ID is $newId", Toast.LENGTH_LONG).show()
+
+                            // Navigate to welcome screen
+                            navController.navigate("patient_welcome/$firstName/$lastName/$newId")
+                        }
+                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {

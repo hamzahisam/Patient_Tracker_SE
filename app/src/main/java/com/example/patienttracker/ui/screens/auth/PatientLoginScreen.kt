@@ -15,12 +15,19 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
+import com.example.patienttracker.data.PatientAccountStorage
+import androidx.navigation.NavController
+import android.content.Context
+
 
 @Composable
 fun PatientLoginScreen(
-    onLogin: () -> Unit,
-    onForgotPassword: () -> Unit
-) {
+    navController: NavController,
+    context: Context,
+    onForgotPassword: () -> Unit = {}
+)
+{
     var patientId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -66,7 +73,15 @@ fun PatientLoginScreen(
             Spacer(Modifier.height(24.dp))
 
             Button(
-                onClick = onLogin,
+                onClick = {
+                    val account = PatientAccountStorage.validateLogin(context, patientId, password)
+                    if (account != null) {
+                        Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+                        navController.navigate("patient_welcome/${account.firstName}/${account.lastName}/${account.id}")
+                    } else {
+                        Toast.makeText(context, "Invalid ID or Password", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0EA5B8)),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier

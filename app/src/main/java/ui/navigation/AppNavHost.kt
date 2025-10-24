@@ -13,6 +13,9 @@ import com.example.patienttracker.ui.screens.doctor.DoctorHomeScreen
 import com.example.patienttracker.ui.screens.common.RoleSelectorScreen
 import com.example.patienttracker.ui.screens.auth.PatientLoginScreen
 import com.example.patienttracker.ui.screens.auth.DoctorLoginScreen
+import com.example.patienttracker.ui.screens.auth.PatientWelcomeScreen
+import com.example.patienttracker.ui.screens.auth.DoctorWelcomeScreen
+
 
 @Composable
 fun AppNavHost(context: Context) {
@@ -40,23 +43,35 @@ fun AppNavHost(context: Context) {
 
         // Patient actual login
         composable("patient_login") {
-            PatientLoginScreen(  // you'll create this next
-                onLogin = { navController.navigate("patient_home") },
-                onForgotPassword = { navController.navigate("patient_forgot") }
-            )
+            PatientLoginScreen(navController, context)
+        }
+
+
+        composable("patient_welcome/{firstName}/{lastName}/{patientId}") { backStackEntry ->
+            val first = backStackEntry.arguments?.getString("firstName") ?: ""
+            val last = backStackEntry.arguments?.getString("lastName") ?: ""
+            val id = backStackEntry.arguments?.getString("patientId") ?: ""
+            PatientWelcomeScreen(navController, first, last, id)
         }
 
         // Doctor login
         composable("doctor_login") {
-            DoctorLoginScreen(
-                onLogin = { navController.navigate("doctor_home") },
-                onForgotPassword = { navController.navigate("doctor_forgot") }
-            )
+            DoctorLoginScreen(navController, context)
         }
+
+
+        composable("doctor_welcome/{firstName}/{lastName}/{doctorId}") { backStackEntry ->
+            val first = backStackEntry.arguments?.getString("firstName") ?: ""
+            val last = backStackEntry.arguments?.getString("lastName") ?: ""
+            val id = backStackEntry.arguments?.getString("doctorId") ?: ""
+            DoctorWelcomeScreen(navController, first, last, id)
+        }
+
 
         composable("register_patient") { RegisterPatientScreen(navController, context) }
         composable("patient_home") { PatientHomeScreen(navController, context) }
         composable("doctor_home") { DoctorHomeScreen(navController, context) }
         composable("admin_home") { AdminHomeScreen(navController, context) }
+        
     }
 }
