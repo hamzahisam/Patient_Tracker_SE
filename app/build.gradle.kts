@@ -55,6 +55,7 @@ dependencies {
     // 🔹 Add these for navigation & JSON support
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.google.code.gson:gson:2.10.1")
+    implementation("androidx.compose.material:material-icons-extended")
 
     // Testing (keep as is)
     testImplementation(libs.junit)

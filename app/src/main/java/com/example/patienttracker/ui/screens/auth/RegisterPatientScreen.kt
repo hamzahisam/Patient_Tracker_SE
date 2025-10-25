@@ -113,10 +113,16 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
                         }
                         else -> {
                             val newId = PatientAccountStorage.addAccount(context, firstName, lastName, email, phone, password)
-                            Toast.makeText(context, "Account created successfully! Your Patient ID is $newId", Toast.LENGTH_LONG).show()
 
-                            // Navigate to welcome screen
-                            navController.navigate("patient_welcome/$firstName/$lastName/$newId")
+                            // Format to 8 digits e.g., 00000001. If non-numeric, pass as-is.
+                            val formattedId = newId.filter { it.isDigit() }.let { digits ->
+                                if (digits.isNotEmpty()) digits.padStart(6, '0') else newId
+                            }
+
+                            // Navigate to the Account Created screen that shows the Patient ID and a "Go to Login" button.
+                            navController.navigate("account_created/$formattedId") {
+                                popUpTo("register_patient") { inclusive = true }
+                            }
                         }
                     }
                 },
