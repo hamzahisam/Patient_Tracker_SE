@@ -29,7 +29,10 @@ private object Route {
     const val PATIENT_WELCOME = "patient_welcome"
     const val DOCTOR_LOGIN = "doctor_login"
     const val DOCTOR_WELCOME = "doctor_welcome"
-    const val PATIENT_HOME = "patient_home"
+
+    // Home routes
+    const val PATIENT_HOME = "patient_home" // legacy (no args)
+    const val PATIENT_HOME_ARGS = "patient_home/{firstName}/{lastName}" // preferred
     const val DOCTOR_HOME = "doctor_home"
     const val ADMIN_HOME = "admin_home"
 }
@@ -82,7 +85,7 @@ fun AppNavHost(context: Context) {
             PatientLoginScreen(navController, context)
         }
 
-        // Optional welcome (if you still use it elsewhere)
+        // Patient welcome (kept as-is)
         composable("patient_welcome/{firstName}/{lastName}/{patientId}") { backStackEntry ->
             val first = backStackEntry.arguments?.getString("firstName") ?: ""
             val last = backStackEntry.arguments?.getString("lastName") ?: ""
@@ -95,7 +98,7 @@ fun AppNavHost(context: Context) {
             DoctorLoginScreen(navController, context)
         }
 
-        // Optional doctor welcome
+        // Doctor welcome (kept as-is)
         composable("doctor_welcome/{firstName}/{lastName}/{doctorId}") { backStackEntry ->
             val first = backStackEntry.arguments?.getString("firstName") ?: ""
             val last = backStackEntry.arguments?.getString("lastName") ?: ""
@@ -108,7 +111,7 @@ fun AppNavHost(context: Context) {
             RegisterPatientScreen(navController, context)
         }
 
-        // NEW: Account created confirmation (shows the Patient ID + "Go to Login")
+        // Account created confirmation
         composable(
             route = "${Route.ACCOUNT_CREATED}/{${Route.ACCOUNT_CREATED_ARG}}",
             arguments = listOf(navArgument(Route.ACCOUNT_CREATED_ARG) { type = NavType.StringType })
@@ -117,8 +120,23 @@ fun AppNavHost(context: Context) {
             PatientAccountCreatedScreen(navController, patientId)
         }
 
-        // Homes
-        composable(Route.PATIENT_HOME) { PatientHomeScreen(navController, context) }
+        // Patient home (preferred route with name args)
+        composable(
+            route = Route.PATIENT_HOME_ARGS,
+            arguments = listOf(
+                navArgument("firstName") { type = NavType.StringType; defaultValue = "" },
+                navArgument("lastName") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) {
+            PatientHomeScreen(navController, context)
+        }
+
+        // Legacy patient home (no args) — kept so old navigations don’t crash
+        composable(Route.PATIENT_HOME) {
+            PatientHomeScreen(navController, context)
+        }
+
+        // Other homes
         composable(Route.DOCTOR_HOME) { DoctorHomeScreen(navController, context) }
         composable(Route.ADMIN_HOME) { AdminHomeScreen(navController, context) }
     }

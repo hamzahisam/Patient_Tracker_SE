@@ -3,16 +3,14 @@ package com.example.patienttracker.ui.screens.auth
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import kotlinx.coroutines.*
-import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
-
 
 @Composable
 fun PatientWelcomeScreen(
@@ -21,9 +19,10 @@ fun PatientWelcomeScreen(
     lastName: String,
     patientId: String
 ) {
+    // Navigate after a short delay, clearing intermediate auth screens safely
     LaunchedEffect(Unit) {
-        delay(2000) // 2 seconds delay before moving ahead
-        navController.navigate("patient_home") {
+        delay(2000)
+        navController.navigate("patient_home/$firstName/$lastName") {
             popUpTo("patient_welcome/$firstName/$lastName/$patientId") { inclusive = true }
         }
     }
@@ -39,9 +38,7 @@ fun PatientWelcomeScreen(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
-
             Spacer(modifier = Modifier.height(12.dp))
-
             Text(
                 text = "Patient ID: #$patientId",
                 fontSize = 18.sp,

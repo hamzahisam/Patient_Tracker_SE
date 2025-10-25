@@ -77,7 +77,7 @@ fun PatientLoginScreen(
                     val account = PatientAccountStorage.validateLogin(context, patientId, password)
                     if (account != null) {
                         Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
-                        navController.navigate("patient_welcome/${account.firstName}/${account.lastName}/${account.id}")
+                        navController.navigate("patient_home/${account.firstName}/${account.lastName}")
                     } else {
                         Toast.makeText(context, "Invalid ID or Password", Toast.LENGTH_SHORT).show()
                     }
