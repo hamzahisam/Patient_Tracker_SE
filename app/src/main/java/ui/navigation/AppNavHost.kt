@@ -137,7 +137,17 @@ fun AppNavHost(context: Context) {
         }
 
         // Other homes
-        composable(Route.DOCTOR_HOME) { DoctorHomeScreen(navController, context) }
+        composable("doctor_home/{firstName}/{lastName}/{doctorId}") { backStackEntry ->
+            val first = backStackEntry.arguments?.getString("firstName") ?: ""
+            val last = backStackEntry.arguments?.getString("lastName") ?: ""
+            val id = backStackEntry.arguments?.getString("doctorId") ?: ""
+            DoctorHomeScreen(navController, context, first, last, id)
+        }
+
+        composable("doctor_home") {
+            DoctorHomeScreen(navController, context)
+        }
+
         composable(Route.ADMIN_HOME) { AdminHomeScreen(navController, context) }
     }
 }

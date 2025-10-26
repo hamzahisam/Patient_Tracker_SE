@@ -23,8 +23,16 @@ fun DoctorWelcomeScreen(
     doctorId: String
 ) {
     LaunchedEffect(Unit) {
-        delay(2500) // wait 2.5 seconds before going to next screen
-        navController.navigate("doctor_home")
+        delay(2000)
+
+        // Make the name & id available to the next screen
+        navController.currentBackStackEntry?.savedStateHandle?.set("firstName", firstName)
+        navController.currentBackStackEntry?.savedStateHandle?.set("lastName", lastName)
+        navController.currentBackStackEntry?.savedStateHandle?.set("doctorId", doctorId)
+
+        navController.navigate("doctor_home/$firstName/$lastName/$doctorId") {
+            popUpTo("doctor_welcome/$firstName/$lastName/$doctorId") { inclusive = true }
+        }
     }
 
     Box(
