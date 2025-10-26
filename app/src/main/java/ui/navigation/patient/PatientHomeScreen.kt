@@ -63,7 +63,7 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
         ?: ""
 
     Scaffold(
-        bottomBar = { BottomBar() },
+        bottomBar = { BottomBar(navController) }, // ✅ fixed
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
     ) { innerPadding ->
         Column(
@@ -80,22 +80,33 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
                     Category("Doctors", R.drawable.ic_doctors),
                     Category("Specialties", R.drawable.ic_specialties),
                     Category("Record", R.drawable.ic_records),
-                )
+                ),
+                onCategoryClick = { category ->
+                    when (category.label) {
+                        "Doctors" -> navController.navigate("doctor_list/All")
+                        "Specialties" -> navController.navigate("doctor_list/All") // optional
+                    }
+                }
             )
 
-            UpcomingSchedule(gradient = gradient)
+
+            UpcomingSchedule(gradient = gradient, navController = navController)
 
             SpecialtiesGrid(
                 titleGradient = gradient,
                 specialties = listOf(
                     Spec("Cardiology", R.drawable.ic_cardiology),
                     Spec("Dermatology", R.drawable.ic_dermatology),
-                    Spec("General\nMedicine", R.drawable.ic_general_medicine),
+                    Spec("General Medicine", R.drawable.ic_general_medicine),
                     Spec("Gynecology", R.drawable.ic_gynecology),
                     Spec("Odontology", R.drawable.ic_odontology),
                     Spec("Oncology", R.drawable.ic_oncology),
-                )
+                ),
+                onSpecialtyClick = { spec ->
+                    navController.navigate("doctor_list/${spec.title}")
+                }
             )
+
         }
     }
 }
@@ -180,7 +191,7 @@ private fun IconBubble(
 data class Category(val label: String, @DrawableRes val iconRes: Int)
 
 @Composable
-private fun CategoriesRow(items: List<Category>) {
+private fun CategoriesRow(items: List<Category>, onCategoryClick: (Category) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Text(
             "Categories",
@@ -192,18 +203,17 @@ private fun CategoriesRow(items: List<Category>) {
         Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween, // or SpaceEvenly
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { category ->
-                CategoryChip(category) {
-                    // TODO: handle category click here
-                }
+                CategoryChip(category) { onCategoryClick(it) }
             }
         }
         Divider(Modifier.padding(top = 12.dp), color = Color(0xFFE5EFF3))
     }
 }
+
 
 @Composable
 private fun CategoryChip(
@@ -258,7 +268,7 @@ private fun monthLabel(date: LocalDate, locale: Locale = Locale.getDefault()): S
     date.month.getDisplayName(TextStyle.FULL, locale)
 
 @Composable
-private fun UpcomingSchedule(gradient: Brush) {
+private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
     Column(Modifier.fillMaxWidth()) {
         // --- Date state shared by header + list ---
         val (dates, todayIndex) = remember { generateDateChipsAroundToday(pastDays = 15, futureDays = 15) }
@@ -329,7 +339,8 @@ private fun UpcomingSchedule(gradient: Brush) {
             entries = listOf(
                 ScheduleEntry("11 October • Wednesday • Today", "10:00 am", "Dr. Olivia Turner"),
                 ScheduleEntry("16 October • Monday", "08:00 am", "Dr. Alexander Bennett")
-            )
+            ),
+            navController = navController
         )
     }
 }
@@ -365,7 +376,13 @@ data class DayChip(val date: LocalDate, val day: String, val dow: String)
 
 data class ScheduleEntry(val subtitle: String, val time: String, val doctor: String)
 
-@Composable private fun ScheduleCard(gradient: Brush, entries: List<ScheduleEntry>) {
+@Composable
+private fun ScheduleCard(
+    gradient: Brush,
+    entries: List<ScheduleEntry>,
+    navController: NavController
+)
+{
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -389,7 +406,8 @@ data class ScheduleEntry(val subtitle: String, val time: String, val doctor: Str
                 Text(
                     "See all",
                     color = Color(0xFF4CB7C2),
-                    style = MaterialTheme.typography.labelLarge
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.clickable { navController.navigate("full_schedule") }
                 )
             }
             entries.forEachIndexed { index, e ->
@@ -425,7 +443,11 @@ data class ScheduleEntry(val subtitle: String, val time: String, val doctor: Str
 data class Spec(val title: String, @DrawableRes val iconRes: Int)
 
 @Composable
-private fun SpecialtiesGrid(titleGradient: Brush, specialties: List<Spec>) {
+private fun SpecialtiesGrid(
+    titleGradient: Brush,
+    specialties: List<Spec>,
+    onSpecialtyClick: (Spec) -> Unit
+) {
     Column(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -440,45 +462,41 @@ private fun SpecialtiesGrid(titleGradient: Brush, specialties: List<Spec>) {
                     fontWeight = FontWeight.SemiBold
                 )
             )
-            Spacer(Modifier.weight(1f))
-            Text(
-                "See all",
-                style = MaterialTheme.typography.labelLarge,
-                color = Color(0xFF4CB7C2)
-            )
         }
-
-        Spacer(Modifier.height(0.dp))
-
-        // Compute cell size from screen width so each cell fills its column
-        val config = LocalConfiguration.current
-        val screenWidthDp = config.screenWidthDp.dp
-        val horizontalPadding = 6.dp
-        val hSpacing = 2.dp
-        val vSpacing = 8.dp
-        val columns = 3
-        val totalSpacing = hSpacing * (columns - 1)
-        // Increase size so the gap above the bottom bar nearly disappears
-        val cellWidth = ((screenWidthDp - horizontalPadding * 2 - totalSpacing) / columns) * 1.2f
-        val gridHeight = cellWidth * 2 + vSpacing // 2 rows + space between
-
+        Spacer(Modifier.height(8.dp))
         LazyVerticalGrid(
-            columns = GridCells.Fixed(columns),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(gridHeight)
-                .padding(start = horizontalPadding, end = horizontalPadding),
-            horizontalArrangement = Arrangement.spacedBy(hSpacing),
-            verticalArrangement = Arrangement.spacedBy(vSpacing),
-            userScrollEnabled = false
+            columns = GridCells.Fixed(3),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(specialties) { spec ->
-                SpecCard(spec) { /* TODO: handle specialty click later */ }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onSpecialtyClick(spec) }
+                        .background(Color(0xFFEAF7F8))
+                        .padding(8.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = spec.iconRes),
+                        contentDescription = spec.title,
+                        modifier = Modifier.size(52.dp)
+                    )
+                    Text(
+                        spec.title,
+                        textAlign = TextAlign.Center,
+                        color = Color(0xFF2A6C74),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
             }
         }
-        Spacer(Modifier.height(0.dp))
     }
 }
+
 
 @Composable
 private fun SpecCard(spec: Spec, onClick: (Spec) -> Unit = {}) {
@@ -508,7 +526,7 @@ private fun SpecCard(spec: Spec, onClick: (Spec) -> Unit = {}) {
 /* --------------------------- Bottom Bar ---------------------------- */
 
 @Composable
-private fun BottomBar() {
+private fun BottomBar(navController: NavController) {
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     Surface(
         tonalElevation = 0.dp,
@@ -518,8 +536,8 @@ private fun BottomBar() {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp + bottomInset) // includes gesture inset space
-                .padding(bottom = bottomInset.coerceAtMost(3.dp)) // ensure not excessive
+                .height(50.dp + bottomInset)
+                .padding(bottom = bottomInset.coerceAtMost(3.dp))
         ) {
             Divider(
                 modifier = Modifier
@@ -534,21 +552,42 @@ private fun BottomBar() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                BottomItem(iconRes = R.drawable.ic_home, label = "Home", selected = true)
-                BottomItem(iconRes = R.drawable.ic_messages, label = "Chat")
-                BottomItem(iconRes = R.drawable.ic_user_profile, label = "Profile")
-                BottomItem(iconRes = R.drawable.ic_booking, label = "Schedule")
+                BottomItem(
+                    iconRes = R.drawable.ic_home,
+                    label = "Home",
+                    selected = true
+                ) { navController.navigate("patient_home") }
+
+                BottomItem(
+                    iconRes = R.drawable.ic_messages,
+                    label = "Chat"
+                ) { /* navController.navigate("chat_screen") */ }
+
+                BottomItem(
+                    iconRes = R.drawable.ic_user_profile,
+                    label = "Profile"
+                ) { /* navController.navigate("patient_profile") */ }
+
+                BottomItem(
+                    iconRes = R.drawable.ic_booking,
+                    label = "Schedule"
+                ) { navController.navigate("full_schedule") }
             }
         }
     }
 }
 
 @Composable
-private fun BottomItem(@DrawableRes iconRes: Int, label: String, selected: Boolean = false) {
+private fun BottomItem(
+    @DrawableRes iconRes: Int,
+    label: String,
+    selected: Boolean = false,
+    onClick: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .width(72.dp)
-            .clickable { /* TODO: navigate later */ },
+            .clickable { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

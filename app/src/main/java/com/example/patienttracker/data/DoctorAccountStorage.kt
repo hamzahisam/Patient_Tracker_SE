@@ -18,17 +18,21 @@ object DoctorAccountStorage {
             val inputStream = context.assets.open("DoctorAccounts.csv")
             val lines = inputStream.bufferedReader().readLines().drop(1)
             lines.mapNotNull { line ->
-                val parts = line.split(Regex("[,\t]"))
-                if (parts.size == 6)
+                // Split by commas, but handle quoted fields properly
+                val parts = line.split(",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)".toRegex())
+                    .map { it.trim().replace("\"", "") }
+
+                // Ensure at least 6 fields (we only use the first 6)
+                if (parts.size >= 6) {
                     DoctorAccount(
-                        parts[0].trim(),
-                        parts[1].trim(),
-                        parts[2].trim(),
-                        parts[3].trim(),
-                        parts[4].trim(),
-                        parts[5].trim()
+                        id = parts[0],
+                        firstName = parts[1],
+                        lastName = parts[2],
+                        email = parts[3],
+                        phone = parts[4],
+                        password = parts[5]
                     )
-                else null
+                } else null
             }
         } catch (e: Exception) {
             e.printStackTrace()

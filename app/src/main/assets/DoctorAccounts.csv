@@ -1,4 +1,7 @@
-DoctorID,FirstName,LastName,Email,Phone,Password
-000001,Zuhair,Merchant,zuhair.merchant@iat.com,03322489414,crossentropylossoptimization
-1,Ali,Khan,ali.khan@clinic.com,03001234567,1
-000003,Sara,Malik,sara.malik@clinic.com,03007654321,Pass123
+DoctorID,FirstName,LastName,Email,Phone,Password,Speciality,Days,Timings
+2,Zuhair,Merchant,zuhair.merchant@iat.com,3322489414,crossentropylossoptimization,Gynecology,"Mon, Wed, Fri",10:00 - 11:00
+1,Ali,Khan,ali.khan@clinic.com,3001234567,1,Cardiology,"Tue, Thu",15:00 - 16:00
+3,Sara,Malik,sara.malik@clinic.com,3007654321,Pass123,Dermatology,Mon,13:00 - 14:00
+4,Ahmed,Rehman,ahmed.rehman@clinic.com,3112223344,securepass,General Medicine,"Mon, Tue, Wed",09:00 - 10:00
+5,Noor,Fatima,noor.fatima@clinic.com,3445556677,abc1234,Odontology,"Tue, Thu",11:00 - 12:00
+6,Imran,Shahid,imran.shahid@clinic.com,3223334455,oncopass,Oncology,"Wed, Fri",14:00 - 15:00

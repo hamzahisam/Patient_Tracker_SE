@@ -18,6 +18,10 @@ import com.example.patienttracker.ui.screens.auth.PatientLoginScreen
 import com.example.patienttracker.ui.screens.auth.DoctorLoginScreen
 import com.example.patienttracker.ui.screens.auth.PatientWelcomeScreen
 import com.example.patienttracker.ui.screens.auth.DoctorWelcomeScreen
+import com.example.patienttracker.ui.screens.patient.DoctorListScreen
+import com.example.patienttracker.ui.screens.patient.DoctorFull
+import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
+import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 
 private object Route {
     const val ROLE = "role"
@@ -135,6 +139,28 @@ fun AppNavHost(context: Context) {
         composable(Route.PATIENT_HOME) {
             PatientHomeScreen(navController, context)
         }
+
+        composable("doctor_list/{speciality}") { backStackEntry ->
+            val speciality = backStackEntry.arguments?.getString("speciality")
+            DoctorListScreen(navController, context, speciality)
+        }
+
+        composable("book_appointment") {
+            val doctor = navController.previousBackStackEntry
+                ?.savedStateHandle
+                ?.get<DoctorFull>("selectedDoctor")
+
+            if (doctor != null) {
+                BookAppointmentScreen(navController, context, doctor)
+            } else {
+                DoctorListScreen(navController, context, specialityFilter = "All")
+            }
+        }
+
+        composable("full_schedule") {
+            FullScheduleScreen(navController, context)
+        }
+
 
         // Other homes
         composable("doctor_home/{firstName}/{lastName}/{doctorId}") { backStackEntry ->
