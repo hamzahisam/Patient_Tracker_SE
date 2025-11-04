@@ -17,29 +17,35 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.patienttracker.data.DoctorAccountStorage
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.delay
-import com.example.patienttracker.data.DoctorAccount
-
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import com.example.patienttracker.ui.screens.auth.model.AppUser
 
 @Composable
 fun DoctorLoginScreen(
     navController: NavController,
     context: Context
 ) {
-    var doctorId by remember { mutableStateOf("") }
-    var loggedInDoctor by remember { mutableStateOf<DoctorAccount?>(null) }
+    var doctorId by remember { mutableStateOf("") }   // humanId like 000001
     var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
     var showWelcome by remember { mutableStateOf(false) }
     var doctorName by remember { mutableStateOf("") }
     var doctorIdDisplay by remember { mutableStateOf("") }
 
+    val scope = rememberCoroutineScope()
+
     if (showWelcome) {
         LaunchedEffect(Unit) {
-            delay(2500)
-            loggedInDoctor?.let {
-                navController.navigate("doctor_welcome/${it.firstName}/${it.lastName}/${it.id}")
-            }
+            delay(2000)
+            val first = doctorName.substringBefore(' ')
+            val last = doctorName.substringAfter(' ', "")
+            navController.navigate("doctor_welcome/${first}/${last}/${doctorIdDisplay}")
         }
 
         Box(
@@ -70,76 +76,147 @@ fun DoctorLoginScreen(
         modifier = Modifier.fillMaxSize(),
         color = Color(0xFFF7FBFB)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-        ) {
-            Text(
-                text = "Doctor Login",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF005F73)
-            )
-
-            Spacer(Modifier.height(32.dp))
-
-            OutlinedTextField(
-                value = doctorId,
-                onValueChange = { doctorId = it },
-                label = { Text("Doctor ID") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = {
-                    val doctor = DoctorAccountStorage.validateLogin(context, doctorId, password)
-                    if (doctor != null) {
-                        loggedInDoctor = doctor
-                        doctorName = "${doctor.firstName} ${doctor.lastName}"
-                        doctorIdDisplay = doctor.id
-                        showWelcome = true
-                    } else {
-                        Toast.makeText(context, "Invalid Doctor ID or Password", Toast.LENGTH_SHORT).show()
-                    }
-
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A9396)),
-                shape = RoundedCornerShape(16.dp),
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
+                    .fillMaxSize()
+                    .padding(24.dp)
             ) {
-                Text("Log In", color = Color.White, fontSize = 18.sp)
+                Text(
+                    text = "Doctor Login",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF005F73)
+                )
+
+                Spacer(Modifier.height(32.dp))
+
+                OutlinedTextField(
+                    value = doctorId,
+                    onValueChange = { doctorId = it },
+                    label = { Text("Doctor ID") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        scope.launch {
+                            if (doctorId.isBlank() || password.isBlank()) {
+                                Toast.makeText(context, "Enter Doctor ID and password", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            isLoading = true
+                            try {
+                                // 1) Look up Firestore profile by humanId
+                                val profile = findDoctorByHumanId(doctorId.trim())
+                                    ?: throw IllegalArgumentException("No doctor with this ID")
+
+                                // 2) Sign in using the profile's email + provided password
+                                val authUser = Firebase.auth
+                                    .signInWithEmailAndPassword(profile.email, password)
+                                    .await()
+                                    .user ?: throw IllegalStateException("Auth failed")
+
+                                // 3) Verify role and fetch canonical profile by UID
+                                val full = fetchUserProfile(authUser.uid)
+                                    ?: throw IllegalStateException("Profile not found")
+                                if (full.role != "doctor") throw IllegalStateException("This account is not a doctor")
+
+                                doctorName = listOf(full.firstName, full.lastName).filter { it.isNotBlank() }.joinToString(" ")
+                                doctorIdDisplay = full.humanId
+
+                                Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+                                showWelcome = true
+                            } catch (e: Exception) {
+                                Toast.makeText(context, e.message ?: "Login failed", Toast.LENGTH_LONG).show()
+                            } finally {
+                                isLoading = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A9396)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    enabled = !isLoading
+                ) {
+                    Text(if (isLoading) "Signing In..." else "Log In", color = Color.White, fontSize = 18.sp)
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "Forgot ID / Password?",
+                    color = Color(0xFF0077B6),
+                    fontSize = 14.sp,
+                    modifier = Modifier.clickable {
+                        Toast.makeText(context, "Please contact admin.", Toast.LENGTH_SHORT).show()
+                    },
+                    textAlign = TextAlign.Center
+                )
             }
 
-            Spacer(Modifier.height(12.dp))
-
-            Text(
-                text = "Forgot ID / Password?",
-                color = Color(0xFF0077B6),
-                fontSize = 14.sp,
-                modifier = Modifier.clickable {
-                    Toast.makeText(context, "Please contact admin.", Toast.LENGTH_SHORT).show()
-                },
-                textAlign = TextAlign.Center
-            )
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(44.dp),
+                    color = Color(0xFF0A9396)
+                )
+            }
         }
     }
+}
+
+// ----------------- Firestore helpers -----------------
+
+private suspend fun findDoctorByHumanId(humanId: String): AppUser? {
+    val db = Firebase.firestore
+    val snap = db.collection("users")
+        .whereEqualTo("humanId", humanId)
+        .whereEqualTo("role", "doctor")
+        .limit(1)
+        .get()
+        .await()
+
+    val d = snap.documents.firstOrNull() ?: return null
+    return AppUser(
+        uid = d.id,
+        role = d.getString("role") ?: "",
+        firstName = d.getString("firstName") ?: "",
+        lastName = d.getString("lastName") ?: "",
+        email = d.getString("email") ?: "",
+        humanId = d.getString("humanId") ?: ""
+    )
+}
+
+private suspend fun fetchUserProfile(uid: String): AppUser? {
+    val db = Firebase.firestore
+    val d = db.collection("users").document(uid).get().await()
+    if (!d.exists()) return null
+    return AppUser(
+        uid = uid,
+        role = d.getString("role") ?: "",
+        firstName = d.getString("firstName") ?: "",
+        lastName = d.getString("lastName") ?: "",
+        email = d.getString("email") ?: "",
+        humanId = d.getString("humanId") ?: ""
+    )
 }
