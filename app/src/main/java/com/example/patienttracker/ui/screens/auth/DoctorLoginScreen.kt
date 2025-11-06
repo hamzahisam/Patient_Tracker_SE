@@ -142,6 +142,15 @@ fun DoctorLoginScreen(
                                 doctorIdDisplay = full.humanId
 
                                 Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+                                // Store profile data for persistence
+                                navController.currentBackStackEntry?.savedStateHandle?.set("firstName", full.firstName)
+                                navController.currentBackStackEntry?.savedStateHandle?.set("lastName", full.lastName)
+                                navController.currentBackStackEntry?.savedStateHandle?.set("doctorId", full.humanId)
+
+                                // Navigate directly to doctor home (or keep welcome screen if you prefer)
+                                navController.navigate("doctor_home/${full.firstName}/${full.lastName}/${full.humanId}") {
+                                    popUpTo("doctor_login") { inclusive = true }
+                                }
                                 showWelcome = true
                             } catch (e: Exception) {
                                 Toast.makeText(context, e.message ?: "Login failed", Toast.LENGTH_LONG).show()

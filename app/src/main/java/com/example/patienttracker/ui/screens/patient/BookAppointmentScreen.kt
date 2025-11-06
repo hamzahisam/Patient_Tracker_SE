@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 import androidx.compose.foundation.clickable
 
+
 @Composable
 fun BookAppointmentScreen(
     navController: NavController,

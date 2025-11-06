@@ -105,15 +105,28 @@ fun PatientLoginScreen(
                                     throw IllegalStateException("This account is not a patient")
                                 }
 
+                                // In PatientLoginScreen.kt, find this section and update:
                                 Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
 
-                                // 4) Hand off name/ID to the next screen via savedStateHandle
+                                // In PatientLoginScreen.kt, update the login success section:
+                                Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+
+                                // Store profile data for persistence
                                 navController.currentBackStackEntry?.savedStateHandle?.set("firstName", profile.firstName)
                                 navController.currentBackStackEntry?.savedStateHandle?.set("lastName", profile.lastName)
-                                navController.currentBackStackEntry?.savedStateHandle?.set("patientId", profile.humanId)
 
-                                // 5) Navigate to patient_home (route without args), or change to your welcome route if needed
-                                navController.navigate("patient_home") {
+                                // Navigate directly to patient home
+                                navController.navigate("patient_home/${profile.firstName}/${profile.lastName}") {
+                                    popUpTo("patient_login") { inclusive = true }
+                                }
+
+                                // 4) Hand off name/ID to the next screen via savedStateHandle
+                                // Replace this section in the login button onClick:
+                                navController.currentBackStackEntry?.savedStateHandle?.set("firstName", profile.firstName)
+                                navController.currentBackStackEntry?.savedStateHandle?.set("lastName", profile.lastName)
+
+                                // Navigate to patient_home with arguments
+                                navController.navigate("patient_home/${profile.firstName}/${profile.lastName}") {
                                     popUpTo("patient_login") { inclusive = true }
                                 }
                                 // If you instead want a welcome screen, use:

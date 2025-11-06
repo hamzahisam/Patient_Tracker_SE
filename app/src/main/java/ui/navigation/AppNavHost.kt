@@ -2,11 +2,18 @@ package com.example.patienttracker.ui.navigation
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.patienttracker.auth.AuthManager
+import com.example.patienttracker.ui.screens.common.SplashScreen
 import com.example.patienttracker.ui.screens.auth.LoginScreen
 import com.example.patienttracker.ui.screens.auth.RegisterPatientScreen
 import com.example.patienttracker.ui.screens.patient.PatientHomeScreen
@@ -22,8 +29,10 @@ import com.example.patienttracker.ui.screens.patient.DoctorListScreen
 import com.example.patienttracker.ui.screens.patient.DoctorFull
 import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
+import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
 
 private object Route {
+    const val SPLASH = "splash"
     const val ROLE = "role"
     const val PATIENT_PORTAL = "patient_portal"
     const val PATIENT_LOGIN = "patient_login"
@@ -35,20 +44,87 @@ private object Route {
     const val DOCTOR_WELCOME = "doctor_welcome"
 
     // Home routes
-    const val PATIENT_HOME = "patient_home" // legacy (no args)
-    const val PATIENT_HOME_ARGS = "patient_home/{firstName}/{lastName}" // preferred
+    const val PATIENT_HOME = "patient_home"
+    const val PATIENT_HOME_ARGS = "patient_home/{firstName}/{lastName}"
     const val DOCTOR_HOME = "doctor_home"
+    const val DOCTOR_HOME_ARGS = "doctor_home/{firstName}/{lastName}/{doctorId}"
     const val ADMIN_HOME = "admin_home"
 }
 
 @Composable
 fun AppNavHost(context: Context) {
     val navController = rememberNavController()
+    var startDestination by remember { mutableStateOf(Route.SPLASH) }
 
     NavHost(
         navController = navController,
-        startDestination = Route.ROLE
+        startDestination = startDestination
     ) {
+        // Splash screen - handles auth check
+        composable(Route.SPLASH) {
+            SplashScreen()
+            
+            LaunchedEffect(Unit) {
+                // Check authentication state
+                if (AuthManager.isUserLoggedIn()) {
+                    // User is logged in, get their role and navigate accordingly
+                    try {
+                        val role = AuthManager.getCurrentUserRole()
+                        val profile = AuthManager.getCurrentUserProfile()
+                        
+                        when (role) {
+                            "patient" -> {
+                                if (profile != null) {
+                                    // Navigate directly to patient home
+                                    navController.navigate("${Route.PATIENT_HOME}/${profile.firstName}/${profile.lastName}") {
+                                        popUpTo(Route.SPLASH) { inclusive = true }
+                                    }
+                                } else {
+                                    // Fallback: go to role selection
+                                    navController.navigate(Route.ROLE) {
+                                        popUpTo(Route.SPLASH) { inclusive = true }
+                                    }
+                                }
+                            }
+                            "doctor" -> {
+                                if (profile != null) {
+                                    // Navigate directly to doctor home
+                                    navController.navigate("${Route.DOCTOR_HOME}/${profile.firstName}/${profile.lastName}/${profile.humanId}") {
+                                        popUpTo(Route.SPLASH) { inclusive = true }
+                                    }
+                                } else {
+                                    // Fallback: go to role selection
+                                    navController.navigate(Route.ROLE) {
+                                        popUpTo(Route.SPLASH) { inclusive = true }
+                                    }
+                                }
+                            }
+                            "admin" -> {
+                                navController.navigate(Route.ADMIN_HOME) {
+                                    popUpTo(Route.SPLASH) { inclusive = true }
+                                }
+                            }
+                            else -> {
+                                // Unknown role, go to role selection
+                                navController.navigate(Route.ROLE) {
+                                    popUpTo(Route.SPLASH) { inclusive = true }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // If there's any error, go to role selection
+                        navController.navigate(Route.ROLE) {
+                            popUpTo(Route.SPLASH) { inclusive = true }
+                        }
+                    }
+                } else {
+                    // User is not logged in, go to role selection
+                    navController.navigate(Route.ROLE) {
+                        popUpTo(Route.SPLASH) { inclusive = true }
+                    }
+                }
+            }
+        }
 
         // Role selection
         composable(Route.ROLE) {
@@ -66,7 +142,7 @@ fun AppNavHost(context: Context) {
             }
         }
 
-        // Patient entry screen (choice: Login / SignUp)
+        // Rest of your existing composables...
         composable(Route.PATIENT_PORTAL) {
             LoginScreen(
                 onLogin = {
@@ -84,12 +160,10 @@ fun AppNavHost(context: Context) {
             )
         }
 
-        // Patient actual login
         composable(Route.PATIENT_LOGIN) {
             PatientLoginScreen(navController, context)
         }
 
-        // Patient welcome (kept as-is)
         composable("patient_welcome/{firstName}/{lastName}/{patientId}") { backStackEntry ->
             val first = backStackEntry.arguments?.getString("firstName") ?: ""
             val last = backStackEntry.arguments?.getString("lastName") ?: ""
@@ -97,12 +171,10 @@ fun AppNavHost(context: Context) {
             PatientWelcomeScreen(navController, first, last, id)
         }
 
-        // Doctor login
         composable(Route.DOCTOR_LOGIN) {
             DoctorLoginScreen(navController, context)
         }
 
-        // Doctor welcome (kept as-is)
         composable("doctor_welcome/{firstName}/{lastName}/{doctorId}") { backStackEntry ->
             val first = backStackEntry.arguments?.getString("firstName") ?: ""
             val last = backStackEntry.arguments?.getString("lastName") ?: ""
@@ -110,12 +182,10 @@ fun AppNavHost(context: Context) {
             DoctorWelcomeScreen(navController, first, last, id)
         }
 
-        // Patient registration
         composable(Route.REGISTER_PATIENT) {
             RegisterPatientScreen(navController, context)
         }
 
-        // Account created confirmation
         composable(
             route = "${Route.ACCOUNT_CREATED}/{${Route.ACCOUNT_CREATED_ARG}}",
             arguments = listOf(navArgument(Route.ACCOUNT_CREATED_ARG) { type = NavType.StringType })
@@ -124,18 +194,18 @@ fun AppNavHost(context: Context) {
             PatientAccountCreatedScreen(navController, patientId)
         }
 
-        // Patient home (preferred route with name args)
         composable(
             route = Route.PATIENT_HOME_ARGS,
             arguments = listOf(
                 navArgument("firstName") { type = NavType.StringType; defaultValue = "" },
                 navArgument("lastName") { type = NavType.StringType; defaultValue = "" }
             )
-        ) {
+        ) { backStackEntry ->
+            val firstName = backStackEntry.arguments?.getString("firstName") ?: ""
+            val lastName = backStackEntry.arguments?.getString("lastName") ?: ""
             PatientHomeScreen(navController, context)
         }
 
-        // Legacy patient home (no args) — kept so old navigations don’t crash
         composable(Route.PATIENT_HOME) {
             PatientHomeScreen(navController, context)
         }
@@ -161,16 +231,39 @@ fun AppNavHost(context: Context) {
             FullScheduleScreen(navController, context)
         }
 
-
-        // Other homes
-        composable("doctor_home/{firstName}/{lastName}/{doctorId}") { backStackEntry ->
+        composable("patient_profile/{firstName}/{lastName}") { backStackEntry ->
             val first = backStackEntry.arguments?.getString("firstName") ?: ""
             val last = backStackEntry.arguments?.getString("lastName") ?: ""
-            val id = backStackEntry.arguments?.getString("doctorId") ?: ""
-            DoctorHomeScreen(navController, context, first, last, id)
+            PatientProfileScreen(navController, first, last)
         }
 
-        composable("doctor_home") {
+        composable(
+            route = "patient_profile/{firstName}/{lastName}",
+            arguments = listOf(
+                navArgument("firstName") { type = NavType.StringType },
+                navArgument("lastName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val firstName = backStackEntry.arguments?.getString("firstName") ?: ""
+            val lastName = backStackEntry.arguments?.getString("lastName") ?: ""
+            PatientProfileScreen(navController, firstName, lastName)
+        }
+
+        composable(
+            route = Route.DOCTOR_HOME_ARGS,
+            arguments = listOf(
+                navArgument("firstName") { type = NavType.StringType },
+                navArgument("lastName") { type = NavType.StringType },
+                navArgument("doctorId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val firstName = backStackEntry.arguments?.getString("firstName") ?: ""
+            val lastName = backStackEntry.arguments?.getString("lastName") ?: ""
+            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
+            DoctorHomeScreen(navController, context, firstName, lastName, doctorId)
+        }
+
+        composable(Route.DOCTOR_HOME) {
             DoctorHomeScreen(navController, context)
         }
 
