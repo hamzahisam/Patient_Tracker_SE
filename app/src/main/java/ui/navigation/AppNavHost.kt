@@ -30,6 +30,8 @@ import com.example.patienttracker.ui.screens.patient.DoctorFull
 import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
+import com.example.patienttracker.ui.screens.patient.ChatSelectionScreen
+import com.example.patienttracker.ui.screens.patient.ChatScreen
 
 private object Route {
     const val SPLASH = "splash"
@@ -247,6 +249,15 @@ fun AppNavHost(context: Context) {
             val firstName = backStackEntry.arguments?.getString("firstName") ?: ""
             val lastName = backStackEntry.arguments?.getString("lastName") ?: ""
             PatientProfileScreen(navController, firstName, lastName)
+        }
+
+        composable("chat_selection") {
+            ChatSelectionScreen(navController, context)
+        }
+
+        composable("chat_screen/{doctorId}") { backStackEntry ->
+            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
+            ChatScreen(navController, context, doctorId)
         }
 
         composable(
