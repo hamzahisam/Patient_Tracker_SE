@@ -25,6 +25,9 @@ import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.Query
 
 
 @Parcelize
@@ -43,12 +46,47 @@ data class DoctorFull(
 fun DoctorListScreen(navController: NavController, context: Context, specialityFilter: String?) {
     val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
 
-    val doctors = remember { readDoctorCsv(context) }
-    val filtered = remember(specialityFilter) {
-        if (specialityFilter.isNullOrBlank() || specialityFilter == "All")
-            doctors
-        else doctors.filter { it.speciality.equals(specialityFilter, ignoreCase = true) }
+    val db = Firebase.firestore
+    var doctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(specialityFilter) {
+        loading = true
+
+        // base query: only doctors from `users` collection
+        var query: Query = db.collection("users")
+            .whereEqualTo("role", "doctor")
+
+        // if a specific speciality is requested (not "All"), filter by it
+        val filter = specialityFilter ?: "All"
+        if (filter != "All") {
+            query = query.whereEqualTo("speciality", filter)   // or "specialty" if that's your field
+        }
+
+        query.get()
+            .addOnSuccessListener { snapshot ->
+                val list = snapshot.documents.mapNotNull { doc ->
+                    // in Firestore your id field is `humanId` (fallback to doctorId if present)
+                    val id = doc.getString("humanId") ?: doc.getString("doctorId") ?: return@mapNotNull null
+                    val first = doc.getString("firstName") ?: ""
+                    val last = doc.getString("lastName") ?: ""
+                    val email = doc.getString("email") ?: ""
+                    val phone = doc.getString("phone") ?: ""
+                    val speciality = doc.getString("speciality") ?: ""
+                    val days = doc.getString("days") ?: ""
+                    val timings = doc.getString("timings") ?: ""
+                    DoctorFull(id, first, last, email, phone, speciality, days, timings)
+                }
+                doctors = list
+                loading = false
+            }
+            .addOnFailureListener {
+                doctors = emptyList()
+                loading = false
+            }
     }
+
+    val filtered = if (specialityFilter.isNullOrBlank() || specialityFilter == "All") doctors else doctors.filter { it.speciality.equals(specialityFilter, true) }
 
     Scaffold(
         topBar = {
@@ -80,10 +118,16 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(16.dp)
         ) {
-            items(filtered) { doc ->
-                DoctorCard(doc) {
-                    navController.currentBackStackEntry?.savedStateHandle?.set("selectedDoctor", doc)
-                    navController.navigate("book_appointment")
+            if (loading) {
+                item { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+            } else if (filtered.isEmpty()) {
+                item { Text("No doctors available", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
+            } else {
+                items(filtered) { doc ->
+                    DoctorCard(doc) {
+                        navController.currentBackStackEntry?.savedStateHandle?.set("selectedDoctor", doc)
+                        navController.navigate("book_appointment")
+                    }
                 }
             }
         }
@@ -123,45 +167,5 @@ fun DoctorCard(doctor: DoctorFull, onBookClick: () -> Unit) {
             }
 
         }
-    }
-}
-
-fun readDoctorCsv(context: Context): List<DoctorFull> {
-    return try {
-        val inputStream = context.assets.open("DoctorAccounts.csv")
-        val lines = inputStream.bufferedReader().readLines().drop(1)
-
-        lines.mapNotNull { line ->
-            val parts = line.split(",")
-            if (parts.size >= 9) {
-                // handle cases where Days or Timings fields contain commas
-                val id = parts[0].trim()
-                val firstName = parts[1].trim()
-                val lastName = parts[2].trim()
-                val email = parts[3].trim()
-                val phone = parts[4].trim()
-                val speciality = parts[6].trim()
-
-                // everything between index 7 and the second-last column = Days
-                val days = parts.subList(7, parts.size - 1).joinToString(", ") { it.trim() }
-
-                // last column = timings
-                val timings = parts.last().trim()
-
-                DoctorFull(
-                    id = id,
-                    firstName = firstName,
-                    lastName = lastName,
-                    email = email,
-                    phone = phone,
-                    speciality = speciality,
-                    days = days,
-                    timings = timings
-                )
-            } else null
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        emptyList()
     }
 }

@@ -19,6 +19,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
@@ -63,6 +68,8 @@ import com.example.patienttracker.R
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
+import androidx.compose.material3.CircularProgressIndicator
+import java.time.format.DateTimeFormatter
 
 // ---------- Public entry ----------
 @Composable
@@ -71,7 +78,8 @@ fun DoctorHomeScreen(
     context: Context,
     firstName: String? = null,
     lastName: String? = null,
-    doctorId: String? = null
+    doctorId: String? = null,
+    specialty: String? = null
 ) {
     // Resolve name/ID from explicit params, then savedStateHandle, then route args, else fallback
     val resolvedFirst = firstName
@@ -89,6 +97,11 @@ fun DoctorHomeScreen(
         ?: navController.currentBackStackEntry?.arguments?.getString("doctorId")
         ?: ""
 
+    val resolvedSpecialty = specialty
+        ?: navController.previousBackStackEntry?.savedStateHandle?.get<String>("doctorSpecialty")
+        ?: navController.currentBackStackEntry?.arguments?.getString("doctorSpecialty")
+        ?: "Specialist"
+
     val initials = buildString {
         if (resolvedFirst.isNotBlank()) append(resolvedFirst.first().uppercaseChar())
         if (resolvedLast.isNotBlank()) append(resolvedLast.first().uppercaseChar())
@@ -99,7 +112,7 @@ fun DoctorHomeScreen(
     )
 
     Scaffold(
-        bottomBar = { DoctorBottomBar() },
+        bottomBar = { DoctorBottomBar(navController) },
         contentWindowInsets = WindowInsets.systemBars.only(
             WindowInsetsSides.Top + WindowInsetsSides.Horizontal
         )
@@ -116,12 +129,23 @@ fun DoctorHomeScreen(
                 initials = initials,
                 onBell = { /* TODO: open notifications */ },
                 onSettings = { /* TODO: open settings */ },
-                onSearch = { /* TODO: open search */ }
+                onSearch = { /* TODO: open search */ },
+                onProfile = {
+                    navController.currentBackStackEntry?.savedStateHandle?.apply {
+                        set("doctorFullName", "Dr. $resolvedFirst $resolvedLast")
+                        set("doctorId", resolvedId)
+                        set("doctorSpecialty", resolvedSpecialty)
+                    }
+                    navController.navigate("doctor_profile")
+                }
             )
 
             Spacer(Modifier.height(12.dp))
 
-            DoctorSchedule(gradient = gradient)
+            DoctorSchedule(
+                gradient = gradient,
+                doctorId = resolvedId
+            )
         }
     }
 }
@@ -136,6 +160,7 @@ private fun DoctorHeader(
     onBell: () -> Unit,
     onSettings: () -> Unit,
     onSearch: () -> Unit,
+    onProfile: () -> Unit,
 ) {
     Surface(
         modifier = Modifier
@@ -181,7 +206,8 @@ private fun DoctorHeader(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFDBE6EF)),
+                    .background(Color(0xFFDBE6EF))
+                    .clickable { onProfile() },
                 contentAlignment = Alignment.Center
             ) {
                 Text(initials, color = Color(0xFF1C3D5A), fontWeight = FontWeight.SemiBold)
@@ -235,11 +261,18 @@ private fun generateDateChipsAroundToday(
 }
 
 @Composable
-private fun DoctorSchedule(gradient: Brush) {
+private fun DoctorSchedule(
+    gradient: Brush,
+    doctorId: String
+) {
     val locale = Locale.getDefault()
     val (dates, todayIndex) = remember { generateDateChipsAroundToday(15, 15, locale) }
     var selected by rememberSaveable { mutableIntStateOf(todayIndex) }
     var displayedMonth by remember { mutableStateOf(monthLabel(dates[todayIndex].date, locale)) }
+    var appointmentsForDay by remember { mutableStateOf<List<Appointment>>(emptyList()) }
+    var apptLoading by remember { mutableStateOf(false) }
+    var apptError by remember { mutableStateOf<String?>(null) }
+    val db = remember { FirebaseFirestore.getInstance() }
 
     // Header (title + month)
     Surface(color = Color.Transparent) {
@@ -299,7 +332,61 @@ private fun DoctorSchedule(gradient: Brush) {
     }
 
     // Appointments list for selected day
-    val appts = remember(selected) { sampleAppointmentsFor(dates[selected].date) }
+    LaunchedEffect(selected, doctorId) {
+        // If we somehow don't have a doctorId yet, clear the list and skip.
+        if (doctorId.isBlank()) {
+            appointmentsForDay = emptyList()
+            apptLoading = false
+            apptError = null
+            return@LaunchedEffect
+        }
+
+        apptLoading = true
+        apptError = null
+
+        val selectedDate = dates[selected].date
+
+        // 🔹 Match the format you actually store, e.g. "Monday, 17 Nov 2025"
+        val formatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale)
+        val dateKey = selectedDate.format(formatter)
+
+        db.collection("appointments")
+            // 🔹 Match your Firestore field names
+            .whereEqualTo("doctorId", doctorId)   // field is "doctorId" in your doc
+            .whereEqualTo("date", dateKey)        // field is "date": "Monday, 17 Nov 2025"
+            .get()
+            .addOnSuccessListener { snap ->
+                val list = snap.documents.map { doc ->
+                    val time = doc.getString("timing") ?: ""          // field "timing"
+                    val first = doc.getString("patientFirstName") ?: ""
+                    val last = doc.getString("patientLastName") ?: ""
+                    val patientName = listOf(first, last)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ")
+                        .ifBlank { "Unknown patient" }
+
+                    val reason = doc.getString("status")
+                        ?: doc.getString("reason")
+                        ?: doc.getString("visitType")
+                        ?: "Appointment"
+
+                    Appointment(
+                        time = time,
+                        patientName = patientName,
+                        reason = reason
+                    )
+                }.sortedBy { it.time }
+
+                appointmentsForDay = list
+                apptLoading = false
+                apptError = null
+            }
+            .addOnFailureListener { e ->
+                appointmentsForDay = emptyList()
+                apptLoading = false
+                apptError = e.message ?: "Failed to load appointments"
+            }
+    }
 
     Surface(
         modifier = Modifier
@@ -327,20 +414,46 @@ private fun DoctorSchedule(gradient: Brush) {
 
             Spacer(Modifier.height(8.dp))
 
-            if (appts.isEmpty()) {
-                Text(
-                    "No appointments for this day.",
-                    color = Color(0xFF5F6970),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(appts) { item ->
-                        AppointmentCard(item = item)
+            when {
+                apptLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF2B6F75),
+                            strokeWidth = 3.dp
+                        )
+                    }
+                }
+
+                apptError != null -> {
+                    Text(
+                        text = apptError ?: "Error loading appointments.",
+                        color = Color(0xFFE53935),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                appointmentsForDay.isEmpty() -> {
+                    Text(
+                        "No appointments for this day.",
+                        color = Color(0xFF5F6970),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        items(appointmentsForDay) { item ->
+                            AppointmentCard(item = item)
+                        }
                     }
                 }
             }
@@ -435,8 +548,10 @@ private fun AppointmentCard(item: Appointment) {
 
 // ---------- Bottom bar ----------
 @Composable
-private fun DoctorBottomBar() {
+private fun DoctorBottomBar(navController: NavController) {
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
     Surface(
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
@@ -461,21 +576,54 @@ private fun DoctorBottomBar() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                BottomItem(R.drawable.ic_home, "Home", selected = true)
-                BottomItem(R.drawable.ic_messages, "Chat")
-                BottomItem(R.drawable.ic_user_profile, "Patients") // reuse user icon
-                BottomItem(R.drawable.ic_booking, "Schedule")
+                BottomItem(
+                    iconRes = R.drawable.ic_home,
+                    label = "Home",
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 /* already here */ }
+                )
+                BottomItem(
+                    iconRes = R.drawable.ic_messages,
+                    label = "Chat",
+                    selected = selectedTab == 1,
+                    onClick = {
+                        navController.navigate("doctor_chat_inbox")
+                    }
+                )
+                BottomItem(
+                    iconRes = R.drawable.ic_user_profile,
+                    label = "Patients",
+                    selected = selectedTab == 2,
+                    onClick = {
+                        selectedTab = 2
+                        // TODO: navigate to patients list when implemented
+                    }
+                )
+                BottomItem(
+                    iconRes = R.drawable.ic_booking,
+                    label = "Schedule",
+                    selected = selectedTab == 3,
+                    onClick = {
+                        selectedTab = 3
+                        // TODO: navigate to schedule screen if needed
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun BottomItem(@DrawableRes iconRes: Int, label: String, selected: Boolean = false) {
+private fun BottomItem(
+    @DrawableRes iconRes: Int,
+    label: String,
+    selected: Boolean = false,
+    onClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .width(72.dp)
-            .clickable { /* TODO: hook up navigation */ },
+            .clickable { onClick() },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -490,5 +638,72 @@ private fun BottomItem(@DrawableRes iconRes: Int, label: String, selected: Boole
             style = MaterialTheme.typography.labelSmall,
             color = if (selected) MaterialTheme.colorScheme.primary else Color(0xFF5F6970)
         )
+    }
+}
+
+
+@Composable
+fun DoctorProfileScreen(navController: NavController) {
+    val context = LocalContext.current
+    val prevEntry = navController.previousBackStackEntry
+    val fullName = prevEntry?.savedStateHandle?.get<String>("doctorFullName") ?: "Doctor"
+    val doctorId = prevEntry?.savedStateHandle?.get<String>("doctorId") ?: ""
+    val specialty = prevEntry?.savedStateHandle?.get<String>("doctorSpecialty") ?: "Specialist"
+
+    Scaffold { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Profile",
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF0D3B40)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = fullName,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color(0xFF1C3D5A)
+                )
+                Text(
+                    text = "Doctor ID: $doctorId",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF35536B)
+                )
+                Text(
+                    text = "Specialty: $specialty",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color(0xFF35536B)
+                )
+            }
+
+            Button(
+                onClick = {
+                    Firebase.auth.signOut()
+                    navController.navigate("role") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Log out",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            }
+        }
     }
 }

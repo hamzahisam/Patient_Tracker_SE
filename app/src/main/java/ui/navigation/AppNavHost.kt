@@ -30,10 +30,13 @@ import com.example.patienttracker.ui.screens.patient.DoctorFull
 import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorProfileScreen
 import com.example.patienttracker.ui.screens.patient.ChatSelectionScreen
 import com.example.patienttracker.ui.screens.patient.ChatScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorChatInboxScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorChatScreen
 
-private object Route {
+object Route {
     const val SPLASH = "splash"
     const val ROLE = "role"
     const val PATIENT_PORTAL = "patient_portal"
@@ -56,71 +59,78 @@ private object Route {
 @Composable
 fun AppNavHost(context: Context) {
     val navController = rememberNavController()
-    var startDestination by remember { mutableStateOf(Route.SPLASH) }
 
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = Route.SPLASH
     ) {
         // Splash screen - handles auth check
         composable(Route.SPLASH) {
             SplashScreen()
-            
+
             LaunchedEffect(Unit) {
-                // Check authentication state
-                if (AuthManager.isUserLoggedIn()) {
-                    // User is logged in, get their role and navigate accordingly
-                    try {
-                        val role = AuthManager.getCurrentUserRole()
-                        val profile = AuthManager.getCurrentUserProfile()
-                        
-                        when (role) {
-                            "patient" -> {
-                                if (profile != null) {
-                                    // Navigate directly to patient home
-                                    navController.navigate("${Route.PATIENT_HOME}/${profile.firstName}/${profile.lastName}") {
-                                        popUpTo(Route.SPLASH) { inclusive = true }
-                                    }
-                                } else {
-                                    // Fallback: go to role selection
-                                    navController.navigate(Route.ROLE) {
-                                        popUpTo(Route.SPLASH) { inclusive = true }
-                                    }
-                                }
-                            }
-                            "doctor" -> {
-                                if (profile != null) {
-                                    // Navigate directly to doctor home
-                                    navController.navigate("${Route.DOCTOR_HOME}/${profile.firstName}/${profile.lastName}/${profile.humanId}") {
-                                        popUpTo(Route.SPLASH) { inclusive = true }
-                                    }
-                                } else {
-                                    // Fallback: go to role selection
-                                    navController.navigate(Route.ROLE) {
-                                        popUpTo(Route.SPLASH) { inclusive = true }
-                                    }
-                                }
-                            }
-                            "admin" -> {
-                                navController.navigate(Route.ADMIN_HOME) {
+                val isLoggedIn = AuthManager.isUserLoggedIn()
+
+                if (!isLoggedIn) {
+                    // User is not logged in, go to role selection
+                    navController.navigate(Route.ROLE) {
+                        popUpTo(Route.SPLASH) { inclusive = true }
+                    }
+                    return@LaunchedEffect
+                }
+
+                try {
+                    val role = AuthManager.getCurrentUserRole()
+                    val profile = AuthManager.getCurrentUserProfile()
+
+                    when (role) {
+                        "patient" -> {
+                            if (profile != null) {
+                                // Navigate directly to patient home with name
+                                navController.navigate(
+                                    "${Route.PATIENT_HOME}/${profile.firstName}/${profile.lastName}"
+                                ) {
                                     popUpTo(Route.SPLASH) { inclusive = true }
                                 }
-                            }
-                            else -> {
-                                // Unknown role, go to role selection
+                            } else {
+                                // Fallback: go to role selection
                                 navController.navigate(Route.ROLE) {
                                     popUpTo(Route.SPLASH) { inclusive = true }
                                 }
                             }
                         }
-                    } catch (e: Exception) {
-                        // If there's any error, go to role selection
-                        navController.navigate(Route.ROLE) {
-                            popUpTo(Route.SPLASH) { inclusive = true }
+
+                        "doctor" -> {
+                            if (profile != null) {
+                                // Navigate directly to doctor home with name + humanId
+                                navController.navigate(
+                                    "${Route.DOCTOR_HOME}/${profile.firstName}/${profile.lastName}/${profile.humanId}"
+                                ) {
+                                    popUpTo(Route.SPLASH) { inclusive = true }
+                                }
+                            } else {
+                                // Fallback: go to role selection
+                                navController.navigate(Route.ROLE) {
+                                    popUpTo(Route.SPLASH) { inclusive = true }
+                                }
+                            }
+                        }
+
+                        "admin" -> {
+                            navController.navigate(Route.ADMIN_HOME) {
+                                popUpTo(Route.SPLASH) { inclusive = true }
+                            }
+                        }
+
+                        else -> {
+                            // Unknown role, go to role selection
+                            navController.navigate(Route.ROLE) {
+                                popUpTo(Route.SPLASH) { inclusive = true }
+                            }
                         }
                     }
-                } else {
-                    // User is not logged in, go to role selection
+                } catch (e: Exception) {
+                    // Any error -> go to role selection
                     navController.navigate(Route.ROLE) {
                         popUpTo(Route.SPLASH) { inclusive = true }
                     }
@@ -239,6 +249,7 @@ fun AppNavHost(context: Context) {
             PatientProfileScreen(navController, first, last)
         }
 
+        // Patient profile
         composable(
             route = "patient_profile/{firstName}/{lastName}",
             arguments = listOf(
@@ -246,18 +257,49 @@ fun AppNavHost(context: Context) {
                 navArgument("lastName") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val firstName = backStackEntry.arguments?.getString("firstName") ?: ""
-            val lastName = backStackEntry.arguments?.getString("lastName") ?: ""
+            val firstName = backStackEntry.arguments?.getString("firstName").orEmpty()
+            val lastName  = backStackEntry.arguments?.getString("lastName").orEmpty()
             PatientProfileScreen(navController, firstName, lastName)
         }
 
-        composable("chat_selection") {
+        // PATIENT chat selection – list of doctors this patient can chat with
+        composable("chat_selection_patient") {
             ChatSelectionScreen(navController, context)
         }
 
-        composable("chat_screen/{doctorId}") { backStackEntry ->
-            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
-            ChatScreen(navController, context, doctorId)
+// DOCTOR chat inbox – list of patients who have chatted with this doctor
+        composable("doctor_chat_inbox") {
+            DoctorChatInboxScreen(navController)
+        }
+
+        /**
+         * PATIENT chat screen
+         * - opened when a PATIENT selects a doctor
+         * - doctorHumanId = doctor.humanId
+         */
+        composable(
+            route = "chat_patient/{doctorHumanId}",
+            arguments = listOf(
+                navArgument("doctorHumanId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val doctorHumanId = backStackEntry.arguments?.getString("doctorHumanId").orEmpty()
+            ChatScreen(navController, context, doctorHumanId)
+        }
+
+        /**
+         * DOCTOR chat screen
+         * - opened when a DOCTOR selects a patient
+         * - patientHumanId = patient.humanId
+         */
+        composable(
+            route = "chat_doctor/{patientHumanId}",
+            arguments = listOf(
+                navArgument("patientHumanId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val patientHumanId = backStackEntry.arguments?.getString("patientHumanId").orEmpty()
+            DoctorChatScreen(navController, context, patientHumanId)
         }
 
         composable(
@@ -279,5 +321,9 @@ fun AppNavHost(context: Context) {
         }
 
         composable(Route.ADMIN_HOME) { AdminHomeScreen(navController, context) }
+
+        composable("doctor_profile") {
+            DoctorProfileScreen(navController)
+        }
     }
 }

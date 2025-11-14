@@ -667,8 +667,8 @@ private fun BottomBar(
                 BottomItem(
                     iconRes = R.drawable.ic_messages,
                     label = "Chat"
-                ) { 
-                    navController.navigate("chat_selection") 
+                ) {
+                    navController.navigate("chat_selection_patient")
                 }
 
                 BottomItem(
