@@ -68,18 +68,19 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
         ?: ""
 
     Scaffold(
-        bottomBar = { 
+        bottomBar = {
             BottomBar(
                 navController = navController,
                 firstName = firstNameArg,
                 lastName = lastNameArg
-            ) 
+            )
         },
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color(0xFFF6F8FC))  // 👈 ADD THIS LINE
                 .padding(innerPadding),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -101,6 +102,7 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
                     when (category.label) {
                         "Doctors" -> navController.navigate("doctor_list/All")
                         "Specialties" -> navController.navigate("doctor_list/All") // optional
+                        "Record" -> navController.navigate("patient_record_options")
                     }
                 }
             )
@@ -566,28 +568,28 @@ private fun SpecialtiesGrid(
             columns = GridCells.Fixed(3),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(specialties) { spec ->
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(20.dp))
                         .clickable { onSpecialtyClick(spec) }
-                        .background(Color(0xFFEAF7F8))
-                        .padding(8.dp)
+                        .background(
+                            brush = Brush.linearGradient(listOf(Color(0xFFB2EBF2), Color(0xFF4DD0E1)))
+                        )
+                        .aspectRatio(1f)
+                        .padding(4.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = spec.iconRes),
                         contentDescription = spec.title,
-                        modifier = Modifier.size(52.dp)
-                    )
-                    Text(
-                        spec.title,
-                        textAlign = TextAlign.Center,
-                        color = Color(0xFF2A6C74),
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .padding(2.dp),
+                        contentScale = ContentScale.Crop
                     )
                 }
             }
