@@ -27,8 +27,6 @@ class MainActivity : ComponentActivity() {
                         "launchedAt" to FieldValue.serverTimestamp()
                     )
                 )
-                .addOnSuccessListener { Log.d(TAG, "✅ Firestore write OK") }
-                .addOnFailureListener { e -> Log.e(TAG, "❌ Firestore write failed", e) }
         }
 
         setContent {
