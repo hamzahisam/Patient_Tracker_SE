@@ -576,7 +576,7 @@ private fun SpecialtiesGrid(
                         .clip(RoundedCornerShape(20.dp))
                         .clickable { onSpecialtyClick(spec) }
                         .background(
-                            brush = Brush.linearGradient(listOf(Color(0xFFB2EBF2), Color(0xFF4DD0E1)))
+                            brush = Brush.linearGradient(listOf(Color(0xFFF6F8FC), Color(0xFFF6F8FC)))
                         )
                         .aspectRatio(1f)
                         .padding(4.dp),
