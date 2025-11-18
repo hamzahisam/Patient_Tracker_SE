@@ -31,12 +31,19 @@ import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorProfileScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorPatientsScreen
 import com.example.patienttracker.ui.screens.patient.ChatSelectionScreen
 import com.example.patienttracker.ui.screens.patient.ChatScreen
-import com.example.patienttracker.ui.screens.patient.PatientRecordOptionsScreen
+// import com.example.patienttracker.ui.screens.patient.PatientRecordOptionsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorChatInboxScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorChatScreen
 import ui.screens.patient.PatientRecordOptionsScreen
+import ui.screens.patient.PatientReportsScreen
+import ui.screens.patient.RecordViewerScreen
+import ui.screens.patient.MedicalRecord
+import com.example.patienttracker.ui.screens.doctor.DoctorPatientRecordOptionsScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorPatientReportsScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorPatientPrescriptionsScreen
 
 object Route {
     const val SPLASH = "splash"
@@ -245,13 +252,45 @@ fun AppNavHost(context: Context) {
             FullScheduleScreen(navController, context)
         }
 
-        composable("patient_profile/{firstName}/{lastName}") { backStackEntry ->
-            val first = backStackEntry.arguments?.getString("firstName") ?: ""
-            val last = backStackEntry.arguments?.getString("lastName") ?: ""
-            PatientProfileScreen(navController, first, last)
-        }
+        // Patient record entry screens
         composable("patient_record_options") {
             PatientRecordOptionsScreen(navController)
+        }
+
+        composable("patient_reports_screen") {
+            // Patient viewing their own REPORTS (can upload)
+            PatientReportsScreen(
+                navController = navController,
+                context = context,
+                canUpload = true,
+                patientIdOverride = null,
+                collectionOverride = "records"
+            )
+        }
+
+        composable("patient_prescriptions_screen") {
+            // Patient viewing their own PRESCRIPTIONS (can upload)
+            PatientReportsScreen(
+                navController = navController,
+                context = context,
+                canUpload = true,
+                patientIdOverride = null,
+                collectionOverride = "prescriptions"
+            )
+        }
+
+        composable("patient_record_viewer") {
+            // We expect the previous screen to put a MedicalRecord into the SavedStateHandle
+            val record = navController.previousBackStackEntry
+                ?.savedStateHandle
+                ?.get<MedicalRecord>("selectedRecord")
+
+            if (record != null) {
+                RecordViewerScreen(navController, record)
+            } else {
+                // Nothing to show, just go back safely
+                navController.popBackStack()
+            }
         }
 
         // Patient profile
@@ -326,6 +365,59 @@ fun AppNavHost(context: Context) {
         }
 
         composable(Route.ADMIN_HOME) { AdminHomeScreen(navController, context) }
+
+        // Doctor Patients screen
+        composable("doctor_patients") {
+            DoctorPatientsScreen(navController)
+        }
+
+        // Doctor taps a patient → record options for that patient
+        composable("doctor_patient_record_options") {
+            val patientId = navController.previousBackStackEntry
+                ?.savedStateHandle?.get<String>("selectedPatientId").orEmpty()
+            val patientName = navController.previousBackStackEntry
+                ?.savedStateHandle?.get<String>("selectedPatientName").orEmpty()
+
+            DoctorPatientRecordOptionsScreen(
+                navController = navController,
+                patientId = patientId,
+                patientName = patientName
+            )
+        }
+
+        composable(
+            route = "doctor_patient_reports_screen/{patientId}/{patientName}",
+            arguments = listOf(
+                navArgument("patientId")   { type = NavType.StringType },
+                navArgument("patientName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val patientId   = backStackEntry.arguments?.getString("patientId").orEmpty()
+            val patientName = backStackEntry.arguments?.getString("patientName").orEmpty()
+            DoctorPatientReportsScreen(navController, patientId, patientName)
+        }
+
+        composable(
+            route = "doctor_patient_prescriptions_screen/{patientId}/{patientName}",
+            arguments = listOf(
+                navArgument("patientId") { type = NavType.StringType },
+                navArgument("patientName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val patientId = backStackEntry.arguments?.getString("patientId").orEmpty()
+            val patientName = backStackEntry.arguments?.getString("patientName").orEmpty()
+
+            PatientReportsScreen(
+                navController = navController,
+                context = context,
+                patientIdOverride = patientId,
+                canUpload = true,                    // doctor can upload here
+                collectionOverride = "prescriptions",
+                title = "Prescriptions – $patientName",
+                entitySingular = "prescription / diagnosis",
+                entityPlural = "prescriptions / diagnoses"
+            )
+        }
 
         composable("doctor_profile") {
             DoctorProfileScreen(navController)

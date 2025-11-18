@@ -6,12 +6,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Divider
@@ -35,43 +33,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.coerceAtLeast
-import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.shape.ZeroCornerSize
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
-import androidx.compose.ui.unit.lerp
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.asPaddingValues
 import com.example.patienttracker.R
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import com.example.patienttracker.auth.AuthManager
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 import androidx.compose.material3.CircularProgressIndicator
 import java.time.format.DateTimeFormatter
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 
 // ---------- Public entry ----------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorHomeScreen(
     navController: NavController,
@@ -596,7 +581,7 @@ private fun DoctorBottomBar(navController: NavController) {
                     selected = selectedTab == 2,
                     onClick = {
                         selectedTab = 2
-                        // TODO: navigate to patients list when implemented
+                        navController.navigate("doctor_patients")
                     }
                 )
                 BottomItem(
@@ -612,6 +597,13 @@ private fun DoctorBottomBar(navController: NavController) {
         }
     }
 }
+// ---------- Patients List ----------
+data class DoctorPatientItem(
+    val patientId: String,
+    val firstName: String,
+    val lastName: String,
+    val lastVisitDate: String
+)
 
 @Composable
 private fun BottomItem(
@@ -702,6 +694,181 @@ fun DoctorProfileScreen(navController: NavController) {
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
+                )
+            }
+        }
+    }
+}
+@Composable
+fun DoctorPatientsScreen(navController: NavController) {
+    val context = LocalContext.current
+    val db = remember { FirebaseFirestore.getInstance() }
+
+    var patients by remember { mutableStateOf<List<DoctorPatientItem>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val profile = AuthManager.getCurrentUserProfile()
+            val doctorId = profile?.humanId
+
+            if (doctorId.isNullOrBlank()) {
+                error = "Could not determine doctor ID."
+                loading = false
+                return@LaunchedEffect
+            }
+
+            db.collection("appointments")
+                .whereEqualTo("doctorId", doctorId)
+                .get()
+                .addOnSuccessListener { snap ->
+                    val grouped = snap.documents
+                        .groupBy { it.getString("patientId") ?: "" }
+                        .filterKeys { it.isNotBlank() }
+
+                    val list = grouped.map { (pid, docs) ->
+                        val firstDoc = docs.first()
+                        val first = firstDoc.getString("patientFirstName") ?: ""
+                        val last = firstDoc.getString("patientLastName") ?: ""
+                        val date = firstDoc.getString("date") ?: ""
+                        DoctorPatientItem(
+                            patientId = pid,
+                            firstName = first,
+                            lastName = last,
+                            lastVisitDate = date
+                        )
+                    }.sortedBy { it.firstName.lowercase() }
+
+                    patients = list
+                    loading = false
+                    error = null
+                }
+                .addOnFailureListener { e ->
+                    patients = emptyList()
+                    loading = false
+                    error = e.message ?: "Failed to load patients"
+                }
+        } catch (e: Exception) {
+            patients = emptyList()
+            loading = false
+            error = e.message
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF6F8FC))
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable { navController.popBackStack() },
+                    tint = Color(0xFF1C3D5A)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    "My Patients",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF1C3D5A)
+                )
+            }
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(Color(0xFFF6F8FC))
+        ) {
+            when {
+                loading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                error != null -> {
+                    Text(
+                        text = "Error: $error",
+                        color = Color.Red,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                patients.isEmpty() -> {
+                    Text(
+                        text = "No patients have booked with you yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF5F6970),
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(patients) { patient ->
+                            DoctorPatientRow(patient) {
+                                val fullName = listOf(patient.firstName, patient.lastName)
+                                    .filter { it.isNotBlank() }
+                                    .joinToString(" ")
+
+                                // Pass selected patient info via SavedStateHandle
+                                navController.currentBackStackEntry?.savedStateHandle?.apply {
+                                        set("selectedPatientId", patient.patientId)
+                                        set("selectedPatientName", fullName)
+                                    }
+                                navController.navigate("doctor_patient_record_options")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DoctorPatientRow(item: DoctorPatientItem, onClick: () -> Unit) {
+    Surface(
+        color = Color.White,
+        shape = RoundedCornerShape(16.dp),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = listOf(item.firstName, item.lastName)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ")
+                    .ifBlank { "Patient ${item.patientId}" },
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = Color(0xFF0D3B40)
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "ID: ${item.patientId}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF5F6970)
+            )
+            if (item.lastVisitDate.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Last visit: ${item.lastVisitDate}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF5F6970)
                 )
             }
         }
