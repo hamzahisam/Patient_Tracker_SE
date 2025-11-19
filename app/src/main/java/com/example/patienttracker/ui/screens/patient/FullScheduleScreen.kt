@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.patienttracker.data.AppointmentStorage
+import com.example.patienttracker.ui.screens.common.BackButton
 
 @Composable
 fun FullScheduleScreen(navController: NavController, context: Context) {
@@ -29,13 +30,20 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(gradient)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 16.dp, vertical = 12.dp), // some vertical padding
                 ) {
+                    // --- Back Button ---
+                    BackButton(
+                        navController = navController,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    )
+
+                    // --- Title ---
                     Text(
                         text = "My Schedule",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }

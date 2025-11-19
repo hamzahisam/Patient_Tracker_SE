@@ -25,6 +25,7 @@ import java.util.*
 // 🔹 import your auth layer (adjust package if needed)
 import com.example.patienttracker.auth.AuthManager
 import com.example.patienttracker.auth.UserProfile
+import com.example.patienttracker.ui.screens.common.BackButton
 
 @Composable
 fun BookAppointmentScreen(
@@ -62,13 +63,20 @@ fun BookAppointmentScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(gradient)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
+                    // --- Back Button ---
+                    BackButton(
+                        navController = navController,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    )
+
+                    // --- Title ---
                     Text(
                         text = "Book Appointment",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }

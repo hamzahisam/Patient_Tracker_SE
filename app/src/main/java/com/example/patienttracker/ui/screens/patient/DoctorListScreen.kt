@@ -28,6 +28,7 @@ import kotlinx.parcelize.Parcelize
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.firestore.Query
+import com.example.patienttracker.ui.screens.common.BackButton
 
 
 @Parcelize
@@ -90,21 +91,25 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
 
     Scaffold(
         topBar = {
-            Surface(
-                color = Color.Transparent,
-                tonalElevation = 0.dp
-            ) {
+            Surface(color = Color.Transparent, tonalElevation = 0.dp) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(gradient)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
+                    // --- Back Button ---
+                    BackButton(
+                        navController = navController,
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    )
+
+                    // --- Title ---
                     Text(
                         text = specialityFilter?.ifBlank { "All Doctors" } ?: "All Doctors",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }

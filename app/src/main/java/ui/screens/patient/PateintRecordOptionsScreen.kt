@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.compose.foundation.Image
 import com.example.patienttracker.R
+import com.example.patienttracker.ui.screens.common.BackButton
 
 
 @Composable
@@ -25,42 +26,53 @@ fun PatientRecordOptionsScreen(navController: NavController) {
     val gradientPrescriptions = Brush.linearGradient(listOf(Color(0xFF6DD5FA), Color(0xFF2980B9)))
     val gradientReports = Brush.linearGradient(listOf(Color(0xFFB2EBF2), Color(0xFF0097A7)))
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF6F8FC))
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(24.dp)
     ) {
-
-        // --- Brand logo ---
-        Image(
-            painter = painterResource(id = R.drawable.ic_healthtrack_logo),
-            contentDescription = "App Logo",
-            modifier = Modifier
-                .size(100.dp)
-                .padding(bottom = 32.dp)
+        // --- Back Button Header ---
+        BackButton(
+            navController = navController,
+            modifier = Modifier.padding(start = 6.dp, top = 6.dp)
         )
 
-        // --- Prescriptions & Diagnosis Card ---
-        RecordOptionCard(
-            title = "Prescriptions & Diagnosis",
-            iconRes = R.drawable.ic_doctor,
-            gradient = gradientPrescriptions
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 48.dp), // leave space for header
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            navController.navigate("patient_prescriptions_screen")
-        }
+            // --- Brand Logo ---
+            Image(
+                painter = painterResource(id = R.drawable.ic_healthtrack_logo),
+                contentDescription = "App Logo",
+                modifier = Modifier
+                    .size(100.dp)
+                    .padding(bottom = 32.dp)
+            )
 
-        Spacer(modifier = Modifier.height(32.dp))
+            // --- Prescriptions & Diagnosis Card ---
+            RecordOptionCard(
+                title = "Prescriptions & Diagnosis",
+                iconRes = R.drawable.ic_doctor,
+                gradient = gradientPrescriptions
+            ) {
+                navController.navigate("patient_prescriptions_screen")
+            }
 
-        // --- Reports Card ---
-        RecordOptionCard(
-            title = "Reports",
-            iconRes = R.drawable.ic_records,
-            gradient = gradientReports
-        ) {
-            navController.navigate("patient_reports_screen")
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // --- Reports Card ---
+            RecordOptionCard(
+                title = "Reports",
+                iconRes = R.drawable.ic_records,
+                gradient = gradientReports
+            ) {
+                navController.navigate("patient_reports_screen")
+            }
         }
     }
 }
