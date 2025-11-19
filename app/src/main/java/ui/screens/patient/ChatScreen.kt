@@ -78,7 +78,12 @@ fun ChatScreen(
     // Shared conversation ID (same for patient + doctor side)
     // Ensures deterministic ordering so both use the same document path
     val conversationId = remember(doctorId, patientId) {
-        "${patientId}_${doctorId}"
+        if (patientId.isNotBlank()) {
+            // ✅ doctorId first, so it matches DoctorChatScreen's "${doctorId}_${patientId}"
+            "${doctorId}_${patientId}"
+        } else {
+            ""
+        }
     }
 
     // Chat state
@@ -89,42 +94,47 @@ fun ChatScreen(
 
     // 🔁 Live Firestore listener – keeps chat in sync
     DisposableEffect(conversationId) {
-        val db = Firebase.firestore
-        val query = db.collection("conversations")
-            .document(conversationId)
-            .collection("messages")
-            .orderBy("timestamp")
+        if (conversationId.isBlank()) {
+            // Patient ID not loaded yet → don't attach a listener
+            onDispose { }
+        } else {
+            val db = Firebase.firestore
+            val query = db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .orderBy("timestamp")
 
-        val registration = query.addSnapshotListener { snapshot, e ->
-            if (e != null) {
-                Log.w("ChatScreen", "listen:error", e)
-                return@addSnapshotListener
-            }
+            val registration = query.addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.w("ChatScreen", "listen:error", e)
+                    return@addSnapshotListener
+                }
 
-            if (snapshot != null) {
-                chatMessages.clear()
-                for (doc in snapshot.documents) {
-                    val text = doc.getString("text") ?: ""
-                    val senderRole = doc.getString("senderRole") ?: "patient"
-                    val ts = doc.getTimestamp("timestamp")?.toDate() ?: Date()
-                    val statusStr = doc.getString("status") ?: "SENT"
-                    val status = runCatching { MessageStatus.valueOf(statusStr) }.getOrElse { MessageStatus.SENT }
+                if (snapshot != null) {
+                    chatMessages.clear()
+                    for (doc in snapshot.documents) {
+                        val text = doc.getString("text") ?: ""
+                        val senderRole = doc.getString("senderRole") ?: "patient"
+                        val ts = doc.getTimestamp("timestamp")?.toDate() ?: Date()
+                        val statusStr = doc.getString("status") ?: "SENT"
+                        val status = runCatching { MessageStatus.valueOf(statusStr) }.getOrElse { MessageStatus.SENT }
 
-                    chatMessages.add(
-                        ChatMessage(
-                            id = doc.id,
-                            text = text,
-                            timestamp = ts,
-                            isSentByMe = (senderRole == currentUserRole),
-                            status = status
+                        chatMessages.add(
+                            ChatMessage(
+                                id = doc.id,
+                                text = text,
+                                timestamp = ts,
+                                isSentByMe = (senderRole == currentUserRole),
+                                status = status
+                            )
                         )
-                    )
+                    }
                 }
             }
-        }
 
-        onDispose {
-            registration.remove()
+            onDispose {
+                registration.remove()
+            }
         }
     }
 
@@ -174,6 +184,10 @@ fun ChatScreen(
                     }
                 }
             }
+        },
+        bottomBar = {
+            // Global patient bottom bar
+            PatientBottomBar(navController)
         }
     ) { innerPadding ->
         Column(
@@ -204,18 +218,6 @@ fun ChatScreen(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Attach file button (future)
-                IconButton(
-                    onClick = {
-                        // TODO: Implement file attachment
-                    }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AttachFile,
-                        contentDescription = "Attach file",
-                        tint = Color(0xFF4CB7C2)
-                    )
-                }
 
                 // Message input field
                 BasicTextField(
@@ -246,7 +248,7 @@ fun ChatScreen(
                 IconButton(
                     onClick = {
                         val trimmed = messageText.trim()
-                        if (trimmed.isNotEmpty() && patientId.isNotEmpty()) {
+                        if (trimmed.isNotEmpty() && patientId.isNotEmpty() && conversationId.isNotBlank()) {
                             val db = Firebase.firestore
                             val msgData = hashMapOf(
                                 "text" to trimmed,

@@ -18,16 +18,16 @@ class MainActivity : ComponentActivity() {
 
         // ✅ Optional Firestore smoke test (debug builds only, without BuildConfig)
         val isDebug = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
-        if (isDebug) {
-            val db = Firebase.firestore
-            db.collection("debug")
-                .add(
-                    mapOf(
-                        "hello" to "world",
-                        "launchedAt" to FieldValue.serverTimestamp()
-                    )
-                )
-        }
+//        if (isDebug) {
+//            val db = Firebase.firestore
+//            db.collection("debug")
+//                .add(
+//                    mapOf(
+//                        "hello" to "world",
+//                        "launchedAt" to FieldValue.serverTimestamp()
+//                    )
+//                )
+//        }
 
         setContent {
             PatientTrackerTheme {

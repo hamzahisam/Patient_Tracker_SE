@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -190,32 +191,46 @@ fun BookAppointmentScreen(
 }
 
 @Composable
-fun DatePicker(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
-    Row(
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        modifier = Modifier.fillMaxWidth()
+fun DatePicker(
+    selectedDate: LocalDate,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    val today = LocalDate.now()
+    val totalDaysToShow = 20   // e.g. next 20 days
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val today = LocalDate.now()
-        for (i in 0..6) {
-            val date = today.plusDays(i.toLong())
+        items(totalDaysToShow) { index ->
+            val date = today.plusDays(index.toLong())
             val isSelected = date == selectedDate
+
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = if (isSelected) Color(0xFF3CC7CD) else Color(0xFFEAF7F8),
+                shadowElevation = if (isSelected) 4.dp else 0.dp,
                 modifier = Modifier
-                    .padding(4.dp)
+                    .width(72.dp)
                     .clickable { onDateSelected(date) }
             ) {
                 Column(
-                    modifier = Modifier.padding(8.dp),
+                    modifier = Modifier
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // day number
                     Text(
-                        date.dayOfMonth.toString(),
+                        text = date.dayOfMonth.toString(),
+                        style = MaterialTheme.typography.titleMedium,
                         color = if (isSelected) Color.White else Color(0xFF2A6C74)
                     )
+                    // short day name (MON, TUE…)
                     Text(
-                        date.dayOfWeek.name.take(3),
+                        text = date.dayOfWeek.name.take(3),
+                        style = MaterialTheme.typography.bodySmall,
                         color = if (isSelected) Color.White else Color(0xFF2A6C74)
                     )
                 }

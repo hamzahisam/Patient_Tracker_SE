@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -32,6 +31,10 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
 
 private const val TAG = "DoctorChatScreen"
 
@@ -83,58 +86,70 @@ fun DoctorChatScreen(
         }
     }
 
-    // Attach Firestore listener once we know the doctorId
-    LaunchedEffect(doctorId, patientId) {
+    // ✅ Shared conversation id (must match patient ChatScreen)
+    val conversationId = remember(doctorId, patientId) {
         val dId = doctorId
-        if (dId.isNullOrBlank() || patientId.isBlank()) return@LaunchedEffect
-
-        // ✅ correct conversation id
-        val conversationId = "${dId}_${patientId}"
-        val db = FirebaseFirestore.getInstance()
-
-        Log.d(TAG, "Listening to conversation: $conversationId")
-
-        db.collection("conversations")
-            .document(conversationId)
-            .collection("messages")
-            .orderBy("timestamp")
-            .addSnapshotListener { snap, e ->
-                if (e != null) {
-                    Log.e(TAG, "Listener error", e)
-                    return@addSnapshotListener
-                }
-                if (snap == null) return@addSnapshotListener
-
-                Log.d(TAG, "Got ${snap.size()} messages for $conversationId")
-
-                val newList = snap.documents.mapNotNull { doc ->
-                    val text = doc.getString("text") ?: return@mapNotNull null
-                    val ts = doc.getTimestamp("timestamp") ?: Timestamp.now()
-                    val senderRole = doc.getString("senderRole") ?: "patient"
-                    val status = doc.getString("status") ?: "sent"
-
-                    DoctorChatMessage(
-                        id = doc.id,
-                        text = text,
-                        timestamp = ts.toDate(),
-                        isSentByMe = senderRole == "doctor",
-                        status = status
-                    )
-                }
-
-                messages.clear()
-                messages.addAll(newList)
-            }
+        if (!dId.isNullOrBlank() && patientId.isNotBlank()) {
+            "${dId}_${patientId}"   // same pattern as patient: doctorId_patientId
+        } else {
+            ""
+        }
     }
 
-    // 2) Inside sendMessage()
+    // ✅ Attach Firestore listener only when conversationId is valid
+    DisposableEffect(conversationId) {
+        if (conversationId.isBlank()) {
+            onDispose { }
+        } else {
+            val db = FirebaseFirestore.getInstance()
+
+            Log.d(TAG, "Listening to conversation: $conversationId")
+
+            val registration = db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .orderBy("timestamp")
+                .addSnapshotListener { snap, e ->
+                    if (e != null) {
+                        Log.e(TAG, "Listener error", e)
+                        return@addSnapshotListener
+                    }
+                    if (snap == null) return@addSnapshotListener
+
+                    Log.d(TAG, "Got ${snap.size()} messages for $conversationId")
+
+                    val newList = snap.documents.mapNotNull { doc ->
+                        val text = doc.getString("text") ?: return@mapNotNull null
+                        val ts = doc.getTimestamp("timestamp") ?: Timestamp.now()
+                        val senderRole = doc.getString("senderRole") ?: "patient"
+                        val status = doc.getString("status") ?: "sent"
+
+                        DoctorChatMessage(
+                            id = doc.id,
+                            text = text,
+                            timestamp = ts.toDate(),
+                            isSentByMe = senderRole == "doctor",
+                            status = status
+                        )
+                    }
+
+                    messages.clear()
+                    messages.addAll(newList)
+                }
+
+            onDispose {
+                registration.remove()
+            }
+        }
+    }
+
+    // ✅ sendMessage uses same conversationId and checks it's not blank
     fun sendMessage() {
         val dId = doctorId
         if (dId.isNullOrBlank() || patientId.isBlank()) return
+        if (conversationId.isBlank()) return
         if (inputText.isBlank()) return
 
-        // ✅ same id as above
-        val conversationId = "${dId}_${patientId}"
         val db = FirebaseFirestore.getInstance()
 
         val msgData = hashMapOf(
@@ -180,7 +195,11 @@ fun DoctorChatScreen(
                     containerColor = Color(0xFF0EA5B8)
                 )
             )
-        }
+        },
+        bottomBar = { DoctorBottomBar(navController, selectedTab = 2) },
+        contentWindowInsets = WindowInsets.systemBars.only(
+            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+        )
     ) { innerPadding ->
         Column(
             modifier = Modifier

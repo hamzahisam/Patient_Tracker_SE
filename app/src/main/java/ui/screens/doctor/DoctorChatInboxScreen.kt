@@ -20,6 +20,10 @@ import com.example.patienttracker.auth.AuthManager
 import com.example.patienttracker.auth.UserProfile
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import com.google.firebase.firestore.Query
+import androidx.compose.foundation.layout.WindowInsetsSides
+
+
 
 private const val TAG = "DoctorChatInbox"
 
@@ -56,7 +60,7 @@ fun DoctorChatInboxScreen(
 
             Log.d(TAG, "Loading doctor inbox for doctorId=$doctorId")
 
-            // 🔹 Use appointments to determine which patients are linked to this doctor
+            // Use appointments to determine linked patients
             db.collection("appointments")
                 .whereEqualTo("status", "booked")
                 .whereEqualTo("doctorId", doctorId)
@@ -75,6 +79,7 @@ fun DoctorChatInboxScreen(
                         return@addSnapshotListener
                     }
 
+                    // Map keyed by patientId so we keep one row per patient
                     val map = linkedMapOf<String, DoctorConversation>()
 
                     for (doc in snapshot.documents) {
@@ -87,32 +92,63 @@ fun DoctorChatInboxScreen(
                             .joinToString(" ")
                             .ifBlank { "Patient $patientId" }
 
-                        val apptDate = doc.getString("appointmentDate") ?: ""
-                        val apptTime = doc.getString("appointmentTime") ?: ""
+                        // Conversation id must match ChatScreen logic
+                        val conversationId =
+                            if (patientId <= doctorId) "${patientId}_${doctorId}" else "${doctorId}_${patientId}"
 
-                        val subtitle = when {
-                            apptDate.isNotBlank() && apptTime.isNotBlank() ->
-                                "Appointment on $apptDate at $apptTime"
-                            apptDate.isNotBlank() ->
-                                "Appointment on $apptDate"
-                            else -> ""
-                        }
-
-                        val conversationId = "${doctorId}_${patientId}"
-
-                        map[patientId] = DoctorConversation(
+                        // Base row – will be enriched with last message below
+                        val base = DoctorConversation(
                             conversationId = conversationId,
                             patientId = patientId,
                             patientName = fullName,
-                            lastMessage = subtitle,
-                            lastMessageTime = 0L // not used for now
+                            lastMessage = "",
+                            lastMessageTime = 0L
                         )
+                        map[patientId] = base
+
+                        // Listen for the latest message for this conversation
+                        db.collection("conversations")
+                            .document(conversationId)
+                            .collection("messages")
+                            .orderBy("timestamp", Query.Direction.DESCENDING)
+                            .limit(1)
+                            .addSnapshotListener { msgSnap, msgErr ->
+                                if (msgErr != null) {
+                                    Log.w(TAG, "Message listener error for $conversationId", msgErr)
+                                    return@addSnapshotListener
+                                }
+
+                                val msgDoc = msgSnap?.documents?.firstOrNull() ?: run {
+                                    // no messages yet for this convo – keep base row
+                                    conversations = map.values
+                                        .sortedWith(
+                                            compareByDescending<DoctorConversation> { it.lastMessageTime }
+                                                .thenBy { it.patientName }
+                                        )
+                                    return@addSnapshotListener
+                                }
+
+                                val text = msgDoc.getString("text") ?: ""
+                                val ts = msgDoc.getTimestamp("timestamp")?.toDate()?.time ?: 0L
+
+                                val existing = map[patientId] ?: base
+                                map[patientId] = existing.copy(
+                                    lastMessage = text,
+                                    lastMessageTime = ts
+                                )
+
+                                conversations = map.values
+                                    .sortedWith(
+                                        compareByDescending<DoctorConversation> { it.lastMessageTime }
+                                            .thenBy { it.patientName }
+                                    )
+                            }
                     }
 
+                    // Initial list (before message listeners fire)
                     conversations = map.values
-                        .sortedBy { it.patientName } // nice deterministic order
+                        .sortedBy { it.patientName }
 
-                    Log.d(TAG, "Doctor has ${conversations.size} patient chats")
                     loading = false
                 }
         } catch (e: Exception) {
@@ -132,7 +168,12 @@ fun DoctorChatInboxScreen(
                     )
                 }
             )
-        }
+        },
+            bottomBar = { DoctorBottomBar(navController, selectedTab = 2) },
+            contentWindowInsets = WindowInsets.systemBars.only(
+                WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+            )
+
     ) { innerPadding ->
         Box(
             modifier = Modifier

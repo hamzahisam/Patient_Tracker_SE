@@ -97,11 +97,11 @@ fun DoctorHomeScreen(
     )
 
     Scaffold(
-        bottomBar = { DoctorBottomBar(navController) },
+        bottomBar = { DoctorBottomBar(navController, selectedTab = 0) },
         contentWindowInsets = WindowInsets.systemBars.only(
             WindowInsetsSides.Top + WindowInsetsSides.Horizontal
         )
-    ) { inner ->
+    ){ inner ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -533,8 +533,10 @@ private fun AppointmentCard(item: Appointment) {
 
 // ---------- Bottom bar ----------
 @Composable
-private fun DoctorBottomBar(navController: NavController) {
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+fun DoctorBottomBar(
+    navController: NavController,
+    selectedTab: Int   // 0 = Home, 1 = Chat, 2 = Patients, 3 = Schedule
+) {
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Surface(
@@ -565,14 +567,26 @@ private fun DoctorBottomBar(navController: NavController) {
                     iconRes = R.drawable.ic_home,
                     label = "Home",
                     selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 /* already here */ }
+                    onClick = {
+                        if (selectedTab != 0) {
+                            navController.navigate("doctor_home") {
+                                launchSingleTop = true
+                                popUpTo("doctor_home") { inclusive = false }
+                            }
+                        }
+                    }
                 )
                 BottomItem(
                     iconRes = R.drawable.ic_messages,
                     label = "Chat",
                     selected = selectedTab == 1,
                     onClick = {
-                        navController.navigate("doctor_chat_inbox")
+                        if (selectedTab != 1) {
+                            navController.navigate("doctor_chat_inbox") {
+                                launchSingleTop = true
+                                popUpTo("doctor_home") { inclusive = false }
+                            }
+                        }
                     }
                 )
                 BottomItem(
@@ -580,8 +594,12 @@ private fun DoctorBottomBar(navController: NavController) {
                     label = "Patients",
                     selected = selectedTab == 2,
                     onClick = {
-                        selectedTab = 2
-                        navController.navigate("doctor_patients")
+                        if (selectedTab != 2) {
+                            navController.navigate("doctor_patients") {
+                                launchSingleTop = true
+                                popUpTo("doctor_home") { inclusive = false }
+                            }
+                        }
                     }
                 )
                 BottomItem(
@@ -589,8 +607,14 @@ private fun DoctorBottomBar(navController: NavController) {
                     label = "Schedule",
                     selected = selectedTab == 3,
                     onClick = {
-                        selectedTab = 3
-                        // TODO: navigate to schedule screen if needed
+                        // if you later add a dedicated schedule screen, navigate there
+                        // for now we can treat Home as schedule as well:
+                        if (selectedTab != 3) {
+                            navController.navigate("doctor_home") {
+                                launchSingleTop = true
+                                popUpTo("doctor_home") { inclusive = false }
+                            }
+                        }
                     }
                 )
             }
@@ -642,7 +666,36 @@ fun DoctorProfileScreen(navController: NavController) {
     val doctorId = prevEntry?.savedStateHandle?.get<String>("doctorId") ?: ""
     val specialty = prevEntry?.savedStateHandle?.get<String>("doctorSpecialty") ?: "Specialist"
 
-    Scaffold { innerPadding ->
+    Scaffold(
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF6F8FC))
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable { navController.popBackStack() },
+                    tint = Color(0xFF1C3D5A)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Profile",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF1C3D5A)
+                )
+            }
+        },
+        bottomBar = { DoctorBottomBar(navController, selectedTab = 2) },
+        contentWindowInsets = WindowInsets.systemBars.only(
+            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+        ),
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -780,7 +833,11 @@ fun DoctorPatientsScreen(navController: NavController) {
                     color = Color(0xFF1C3D5A)
                 )
             }
-        }
+        },
+        bottomBar = { DoctorBottomBar(navController, selectedTab = 2) },
+        contentWindowInsets = WindowInsets.systemBars.only(
+            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+        )
     ) { innerPadding ->
         Box(
             modifier = Modifier

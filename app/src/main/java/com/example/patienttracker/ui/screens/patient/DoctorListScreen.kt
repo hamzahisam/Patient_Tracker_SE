@@ -1,8 +1,8 @@
 package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
+import android.os.Parcelable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,25 +11,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.patienttracker.data.DoctorAccountStorage
-import com.example.patienttracker.data.DoctorAccount
-import com.example.patienttracker.ui.screens.patient.DoctorFull
-import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
-import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import com.google.firebase.firestore.Query
 import com.example.patienttracker.ui.screens.common.BackButton
-
+import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class DoctorFull(
@@ -39,12 +31,16 @@ data class DoctorFull(
     val email: String,
     val phone: String,
     val speciality: String,
-    val days: String,
-    val timings: String
+    val days: String,      // human-readable, e.g. "Mon, Wed, Fri"
+    val timings: String    // human-readable, e.g. "6:00 pm – 9:00 pm"
 ) : Parcelable
 
 @Composable
-fun DoctorListScreen(navController: NavController, context: Context, specialityFilter: String?) {
+fun DoctorListScreen(
+    navController: NavController,
+    context: Context,
+    specialityFilter: String?
+) {
     val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
 
     val db = Firebase.firestore
@@ -54,29 +50,55 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
     LaunchedEffect(specialityFilter) {
         loading = true
 
-        // base query: only doctors from `users` collection
-        var query: Query = db.collection("users")
+        // ✅ Only filter by role in Firestore
+        val query: Query = db.collection("users")
             .whereEqualTo("role", "doctor")
-
-        // if a specific speciality is requested (not "All"), filter by it
-        val filter = specialityFilter ?: "All"
-        if (filter != "All") {
-            query = query.whereEqualTo("speciality", filter)   // or "specialty" if that's your field
-        }
 
         query.get()
             .addOnSuccessListener { snapshot ->
                 val list = snapshot.documents.mapNotNull { doc ->
-                    // in Firestore your id field is `humanId` (fallback to doctorId if present)
-                    val id = doc.getString("humanId") ?: doc.getString("doctorId") ?: return@mapNotNull null
+                    val id = doc.getString("humanId")
+                        ?: doc.getString("doctorId")
+                        ?: return@mapNotNull null
+
                     val first = doc.getString("firstName") ?: ""
                     val last = doc.getString("lastName") ?: ""
                     val email = doc.getString("email") ?: ""
                     val phone = doc.getString("phone") ?: ""
                     val speciality = doc.getString("speciality") ?: ""
-                    val days = doc.getString("days") ?: ""
-                    val timings = doc.getString("timings") ?: ""
-                    DoctorFull(id, first, last, email, phone, speciality, days, timings)
+
+                    val daysList = (doc.get("days") as? List<*>)?.mapNotNull { it as? String }
+                        ?: emptyList()
+                    val daysDisplay = if (daysList.isNotEmpty()) {
+                        daysList.joinToString(", ")
+                    } else {
+                        ""
+                    }
+
+                    val timingsRaw = (doc.get("timings") as? List<*>)?.mapNotNull {
+                        when (it) {
+                            is Long -> it.toInt()
+                            is Int -> it
+                            else -> null
+                        }
+                    } ?: emptyList()
+
+                    val timingsDisplay = if (timingsRaw.size >= 2) {
+                        "${formatTimeHHmm(timingsRaw[0])} – ${formatTimeHHmm(timingsRaw[1])}"
+                    } else {
+                        ""
+                    }
+
+                    DoctorFull(
+                        id = id,
+                        firstName = first,
+                        lastName = last,
+                        email = email,
+                        phone = phone,
+                        speciality = speciality,
+                        days = daysDisplay,
+                        timings = timingsDisplay
+                    )
                 }
                 doctors = list
                 loading = false
@@ -87,7 +109,12 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
             }
     }
 
-    val filtered = if (specialityFilter.isNullOrBlank() || specialityFilter == "All") doctors else doctors.filter { it.speciality.equals(specialityFilter, true) }
+    val filtered =
+        if (specialityFilter.isNullOrBlank() || specialityFilter == "All") {
+            doctors
+        } else {
+            doctors.filter { it.speciality.contains(specialityFilter, ignoreCase = true) }
+        }
 
     Scaffold(
         topBar = {
@@ -98,22 +125,25 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
                         .background(gradient)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    // --- Back Button ---
+                    // Back Button
                     BackButton(
                         navController = navController,
                         modifier = Modifier.align(Alignment.CenterStart)
                     )
 
-                    // --- Title ---
+                    // Title
                     Text(
                         text = specialityFilter?.ifBlank { "All Doctors" } ?: "All Doctors",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
-        }
+        },
+        bottomBar = { PatientBottomBar(navController) }
     ) { inner ->
         LazyColumn(
             modifier = Modifier
@@ -124,13 +154,31 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
             contentPadding = PaddingValues(16.dp)
         ) {
             if (loading) {
-                item { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
             } else if (filtered.isEmpty()) {
-                item { Text("No doctors available", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) }
+                item {
+                    Text(
+                        "No doctors available",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
             } else {
                 items(filtered) { doc ->
                     DoctorCard(doc) {
-                        navController.currentBackStackEntry?.savedStateHandle?.set("selectedDoctor", doc)
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle
+                            ?.set("selectedDoctor", doc)
+
                         navController.navigate("book_appointment")
                     }
                 }
@@ -140,7 +188,10 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
 }
 
 @Composable
-fun DoctorCard(doctor: DoctorFull, onBookClick: () -> Unit) {
+fun DoctorCard(
+    doctor: DoctorFull,
+    onBookClick: () -> Unit
+) {
     Surface(
         shape = RoundedCornerShape(20.dp),
         tonalElevation = 2.dp,
@@ -159,8 +210,12 @@ fun DoctorCard(doctor: DoctorFull, onBookClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(4.dp))
-            Text("Days: ${doctor.days}", color = Color(0xFF2A6C74))
-            Text("Timings: ${doctor.timings}", color = Color(0xFF2A6C74))
+            if (doctor.days.isNotBlank()) {
+                Text("Days: ${doctor.days}", color = Color(0xFF2A6C74))
+            }
+            if (doctor.timings.isNotBlank()) {
+                Text("Timings: ${doctor.timings}", color = Color(0xFF2A6C74))
+            }
             Spacer(Modifier.height(12.dp))
             Button(
                 onClick = onBookClick,
@@ -170,7 +225,24 @@ fun DoctorCard(doctor: DoctorFull, onBookClick: () -> Unit) {
             ) {
                 Text("Book Appointment", color = Color.White)
             }
-
         }
     }
+}
+
+/**
+ * Convert 1800 -> "6:00 pm", 900 -> "9:00 am"
+ * (assuming HHmm integer representation)
+ */
+private fun formatTimeHHmm(value: Int): String {
+    val hours24 = value / 100
+    val minutes = value % 100
+
+    val amPm = if (hours24 >= 12) "pm" else "am"
+    val hours12 = when {
+        hours24 == 0 -> 12
+        hours24 > 12 -> hours24 - 12
+        else -> hours24
+    }
+
+    return String.format("%d:%02d %s", hours12, minutes, amPm)
 }

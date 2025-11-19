@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.patienttracker.auth.AuthManager
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await   // 👈 NEW
 
 private const val TAG = "ChatSelectionScreen"
 
@@ -40,6 +41,8 @@ fun ChatSelectionScreen(
 
     // --- Firestore load ---
     LaunchedEffect(Unit) {
+        val db = FirebaseFirestore.getInstance()
+
         try {
             val profile = AuthManager.getCurrentUserProfile()
             val patientId = profile?.humanId
@@ -53,51 +56,69 @@ fun ChatSelectionScreen(
 
             Log.d(TAG, "Loading chat doctors for patientId=$patientId")
 
-            val db = FirebaseFirestore.getInstance()
-
-            // 🔹 Let Firestore do both filters: status AND this patient
-            db.collection("appointments")
+            // 1) Get all booked appointments for this patient
+            val apptSnap = db.collection("appointments")
                 .whereEqualTo("status", "booked")
                 .whereEqualTo("patientId", patientId)
                 .get()
-                .addOnSuccessListener { snap ->
-                    Log.d(TAG, "Appointments query success: size=${snap.size()} for patientId=$patientId")
+                .await()
 
-                    val map = linkedMapOf<String, DoctorItem>()
+            Log.d(TAG, "Appointments query success: size=${apptSnap.size()} for patientId=$patientId")
 
-                    for (doc in snap.documents) {
-                        val doctorId = doc.getString("doctorId")
-                        val first = doc.getString("doctorFirstName") ?: ""
-                        val last = doc.getString("doctorLastName") ?: ""
-                        // field name in your screenshot is "doctorSpeciality"
-                        val specialty = doc.getString("doctorSpeciality") ?: ""
+            // Collect unique doctor humanIds
+            val doctorHumanIds = apptSnap.documents.mapNotNull { d ->
+                d.getString("doctorId")   // this is the doctor's humanId
+            }.distinct()
 
-                        Log.d(
-                            TAG,
-                            "Doc ${doc.id} -> doctorId=$doctorId, doctorFirstName=$first, doctorLastName=$last, specialty=$specialty"
-                        )
+            if (doctorHumanIds.isEmpty()) {
+                doctors = emptyList()
+                loading = false
+                Log.d(TAG, "No doctorHumanIds found for patient $patientId")
+                return@LaunchedEffect
+            }
 
-                        if (doctorId.isNullOrBlank()) continue
+            val resultList = mutableListOf<DoctorItem>()
 
-                        // use doctorId as both uid + humanId for now
-                        map[doctorId] = DoctorItem(
-                            uid = doctorId,
-                            humanId = doctorId,
+            // 2) For each doctorHumanId, fetch the latest profile from users
+            for (humanId in doctorHumanIds) {
+                try {
+                    val q = db.collection("users")
+                        .whereEqualTo("role", "doctor")
+                        .whereEqualTo("humanId", humanId)
+                        .limit(1)
+                        .get()
+                        .await()
+
+                    val doc = q.documents.firstOrNull() ?: continue
+
+                    val uid = doc.id
+                    val first = doc.getString("firstName") ?: ""
+                    val last = doc.getString("lastName") ?: ""
+                    val specialty = doc.getString("speciality") ?: ""  // same key you use elsewhere
+
+                    Log.d(
+                        TAG,
+                        "Doctor user doc ${doc.id} -> humanId=$humanId, firstName=$first, lastName=$last, speciality=$specialty"
+                    )
+
+                    resultList.add(
+                        DoctorItem(
+                            uid = uid,
+                            humanId = humanId,
                             firstName = first,
                             lastName = last,
                             specialty = specialty
                         )
-                    }
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to load doctor profile for humanId=$humanId", e)
+                    // skip this doctor, continue with others
+                }
+            }
 
-                    doctors = map.values.toList()
-                    loading = false
-                    Log.d(TAG, "Loaded ${doctors.size} chat doctors for patient $patientId")
-                }
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Failed to load chats", e)
-                    error = e.message ?: "Failed to load chats"
-                    loading = false
-                }
+            doctors = resultList
+            loading = false
+            Log.d(TAG, "Loaded ${doctors.size} chat doctors for patient $patientId")
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error loading chats", e)
             error = e.message ?: "Unexpected error"
@@ -110,6 +131,10 @@ fun ChatSelectionScreen(
             TopAppBar(
                 title = { Text("Patient Chats") }
             )
+        },
+        bottomBar = {
+            // Global patient bottom bar
+            PatientBottomBar(navController)
         }
     ) { inner ->
         Box(
@@ -148,7 +173,7 @@ fun ChatSelectionScreen(
                     ) {
                         items(doctors) { doctor ->
                             DoctorRow(doctor) {
-                                // navigate to chat_screen with doctorId (same as humanId here)
+                                // navigate to chat screen with this doctor’s humanId
                                 navController.navigate("chat_patient/${doctor.humanId}")
                             }
                         }

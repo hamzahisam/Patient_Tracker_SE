@@ -47,7 +47,8 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                     )
                 }
             }
-        }
+        },
+        bottomBar = { PatientBottomBar(navController) }
     ) { inner ->
         if (appointments.isEmpty()) {
             Box(

@@ -51,6 +51,7 @@ import com.example.patienttracker.data.AppointmentStorage
 import com.example.patienttracker.data.Appointment
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalContext
+import com.example.patienttracker.auth.AuthManager
 
 
 @Composable
@@ -69,11 +70,7 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
 
     Scaffold(
         bottomBar = {
-            BottomBar(
-                navController = navController,
-                firstName = firstNameArg,
-                lastName = lastNameArg
-            )
+            PatientBottomBar(navController)
         },
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
     ) { innerPadding ->
@@ -626,12 +623,25 @@ private fun SpecCard(spec: Spec, onClick: (Spec) -> Unit = {}) {
 /* --------------------------- Bottom Bar ---------------------------- */
 
 @Composable
-private fun BottomBar(
-    navController: NavController,
-    firstName: String,
-    lastName: String
+fun PatientBottomBar(
+    navController: NavController
 ) {
+    // Load current patient name once
+    var firstName by remember { mutableStateOf("Patient") }
+    var lastName by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        try {
+            val profile = AuthManager.getCurrentUserProfile()
+            firstName = profile?.firstName ?: "Patient"
+            lastName  = profile?.lastName  ?: ""
+        } catch (_: Exception) {
+            // keep defaults on error
+        }
+    }
+
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
     Surface(
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
@@ -660,7 +670,7 @@ private fun BottomBar(
                     iconRes = R.drawable.ic_home,
                     label = "Home",
                     selected = true
-                ) { 
+                ) {
                     navController.navigate("patient_home/$firstName/$lastName") {
                         popUpTo("patient_home/$firstName/$lastName") { inclusive = true }
                     }
@@ -676,16 +686,18 @@ private fun BottomBar(
                 BottomItem(
                     iconRes = R.drawable.ic_user_profile,
                     label = "Profile"
-                ) { 
-                    val safeFirstName = firstName.ifBlank { "Patient" }
-                    val safeLastName = lastName.ifBlank { "" }
-                    navController.navigate("patient_profile/$safeFirstName/$safeLastName") 
+                ) {
+                    val safeFirst = firstName.ifBlank { "Patient" }
+                    val safeLast  = lastName.ifBlank { "" }
+                    navController.navigate("patient_profile/$safeFirst/$safeLast")
                 }
 
                 BottomItem(
                     iconRes = R.drawable.ic_booking,
                     label = "Schedule"
-                ) { navController.navigate("full_schedule") }
+                ) {
+                    navController.navigate("full_schedule")
+                }
             }
         }
     }

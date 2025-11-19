@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import com.example.patienttracker.ui.screens.patient.PatientBottomBar
 
 @Composable
 fun PatientProfileScreen(
@@ -24,9 +25,9 @@ fun PatientProfileScreen(
 ) {
     val safeFirstName = firstName ?: "Patient"
     val safeLastName = lastName ?: ""
-    
+
     var showLogoutDialog by remember { mutableStateOf(false) }
-    
+
     // Logout dialog
     if (showLogoutDialog) {
         AlertDialog(
@@ -58,16 +59,23 @@ fun PatientProfileScreen(
         )
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFF9FEFF) // Same theme color as other screens
-    ) {
-        Column(
+    Scaffold(
+        bottomBar = {
+            PatientBottomBar(navController = navController)
+        }
+    ) { innerPadding ->
+        Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(bottom = innerPadding.calculateBottomPadding()),
+            color = Color(0xFFF9FEFF) // Same theme color as other screens
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
             // Header
             Text(
                 text = "Profile",
@@ -109,7 +117,7 @@ fun PatientProfileScreen(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        
+
                         Column {
                             Text(
                                 text = "$safeFirstName $safeLastName", // Use safe variables here
@@ -155,5 +163,6 @@ fun PatientProfileScreen(
                 )
             }
         }
+            }
+        }
     }
-}

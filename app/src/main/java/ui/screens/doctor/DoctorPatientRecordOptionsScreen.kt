@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.compose.foundation.Image
 import com.example.patienttracker.R
+import com.example.patienttracker.ui.screens.doctor.DoctorBottomBar
 
 @Composable
 fun DoctorPatientRecordOptionsScreen(
@@ -33,52 +35,50 @@ fun DoctorPatientRecordOptionsScreen(
         listOf(Color(0xFFB2EBF2), Color(0xFF0097A7))
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF6F8FC))
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-
-        Text(
-            text = patientName.ifBlank { "Patient $patientId" },
-            style = MaterialTheme.typography.titleLarge,
-            color = Color(0xFF1C3D5A),
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
-
-        // 🔹 1) Prescriptions & Diagnosis – doctor can edit here
-        DoctorRecordOptionCard(
-            title = "Prescriptions & Diagnosis",
-            iconRes = R.drawable.ic_doctor,   // or a separate icon if you have one
-            gradient = gradientPrescriptions
+    Scaffold(
+        // Patients tab is conceptually active here
+        bottomBar = { DoctorBottomBar(navController, selectedTab = 2) }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF6F8FC))
+                .padding(innerPadding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // This should go to a screen like DoctorPatientPrescriptionsScreen
-            // which:
-            //   - only allows DOCTOR uploads/edits
-            //   - uses a separate collection / type (e.g. `prescriptions`)
-            //   - does NOT show records from the generic reports collection
-            navController.navigate(
-                "doctor_patient_prescriptions_screen/$patientId/$patientName"
-            )
-        }
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // 🔹 2) Reports – read-only for doctor, separate from prescriptions
-        DoctorRecordOptionCard(
-            title = "Reports",
-            iconRes = R.drawable.ic_records,
-            gradient = gradientReports
-        ) {
-            // This should use DoctorPatientReportsScreen,
-            // which reads from e.g. `records` collection
-            // and does NOT show anything from `prescriptions`.
-            navController.navigate(
-                "doctor_patient_reports_screen/$patientId/$patientName"
+            Text(
+                text = patientName.ifBlank { "Patient $patientId" },
+                style = MaterialTheme.typography.titleLarge,
+                color = Color(0xFF1C3D5A),
+                modifier = Modifier.padding(bottom = 32.dp)
             )
+
+            // 🔹 1) Prescriptions & Diagnosis – doctor can edit here
+            DoctorRecordOptionCard(
+                title = "Prescriptions & Diagnosis",
+                iconRes = R.drawable.ic_doctor,   // or a separate icon if you have one
+                gradient = gradientPrescriptions
+            ) {
+                navController.navigate(
+                    "doctor_patient_prescriptions_screen/$patientId/$patientName"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // 🔹 2) Reports – read-only for doctor, separate from prescriptions
+            DoctorRecordOptionCard(
+                title = "Reports",
+                iconRes = R.drawable.ic_records,
+                gradient = gradientReports
+            ) {
+                navController.navigate(
+                    "doctor_patient_reports_screen/$patientId/$patientName"
+                )
+            }
         }
     }
 }
