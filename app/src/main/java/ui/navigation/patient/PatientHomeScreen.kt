@@ -140,7 +140,10 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
                 // Quick actions (placeholders)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     IconBubble(R.drawable.ic_notifications) { /* TODO: handle notification click */ }
-                    IconBubble(R.drawable.ic_settings) { /* TODO: handle notification click */ }
+                    IconBubble(R.drawable.ic_settings) { 
+                        // Navigate to settings screen
+                        navController.navigate("settings") 
+                    }
                     IconBubble(R.drawable.ic_search) { /* TODO: handle notification click */ }
                 }
                 Spacer(Modifier.weight(1f))
@@ -153,7 +156,7 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
                         )
                     )
                     Text(
-                        firstName, // Changed from "$firstName $lastName" to just firstName
+                        firstName,
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = Color(0xFF1C3D5A)
                     )
@@ -166,7 +169,6 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
                         .clip(CircleShape)
                         .background(Color(0xFFCAD9E6))
                         .clickable { 
-                            // Safe navigation with fallback
                             val safeFirstName = firstName.ifBlank { "Patient" }
                             val safeLastName = lastName.ifBlank { "" }
                             navController.navigate("patient_profile/$safeFirstName/$safeLastName") 

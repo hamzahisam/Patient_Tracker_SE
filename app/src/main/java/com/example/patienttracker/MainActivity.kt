@@ -1,15 +1,12 @@
 package com.example.patienttracker
 
 import android.os.Bundle
-import android.util.Log
 import android.content.pm.ApplicationInfo
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.example.patienttracker.data.ThemeManager
 import com.example.patienttracker.ui.navigation.AppNavHost
 import com.example.patienttracker.ui.theme.PatientTrackerTheme
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
 
 class MainActivity : ComponentActivity() {
 
@@ -30,7 +27,11 @@ class MainActivity : ComponentActivity() {
 //        }
 
         setContent {
-            PatientTrackerTheme {
+            val isDarkMode = ThemeManager.isDarkModeEnabled(this)
+            
+            PatientTrackerTheme(
+                darkTheme = isDarkMode
+            ) {
                 AppNavHost(context = this)
             }
         }

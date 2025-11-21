@@ -44,6 +44,8 @@ import ui.screens.patient.MedicalRecord
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientRecordOptionsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientReportsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientPrescriptionsScreen
+import com.example.patienttracker.ui.screens.patient.SettingsScreen
+import com.example.patienttracker.ui.screens.patient.EnhancedProfileScreen
 
 object Route {
     const val SPLASH = "splash"
@@ -293,7 +295,7 @@ fun AppNavHost(context: Context) {
             }
         }
 
-        // Patient profile
+        // REPLACED: Patient profile with Enhanced Profile
         composable(
             route = "patient_profile/{firstName}/{lastName}",
             arguments = listOf(
@@ -301,9 +303,8 @@ fun AppNavHost(context: Context) {
                 navArgument("lastName") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val firstName = backStackEntry.arguments?.getString("firstName").orEmpty()
-            val lastName  = backStackEntry.arguments?.getString("lastName").orEmpty()
-            PatientProfileScreen(navController, firstName, lastName)
+            // Instead of PatientProfileScreen, navigate to EnhancedProfileScreen
+            EnhancedProfileScreen(navController)
         }
 
         // PATIENT chat selection – list of doctors this patient can chat with
@@ -311,7 +312,7 @@ fun AppNavHost(context: Context) {
             ChatSelectionScreen(navController, context)
         }
 
-// DOCTOR chat inbox – list of patients who have chatted with this doctor
+        // DOCTOR chat inbox – list of patients who have chatted with this doctor
         composable("doctor_chat_inbox") {
             DoctorChatInboxScreen(navController)
         }
@@ -344,6 +345,14 @@ fun AppNavHost(context: Context) {
         ) { backStackEntry ->
             val patientHumanId = backStackEntry.arguments?.getString("patientHumanId").orEmpty()
             DoctorChatScreen(navController, context, patientHumanId)
+        }
+
+        composable("settings") {
+            SettingsScreen(navController)
+        }
+
+        composable("enhanced_profile") {
+            EnhancedProfileScreen(navController)
         }
 
         composable(

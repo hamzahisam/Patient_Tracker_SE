@@ -54,20 +54,25 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-    // 🔹 Add these for navigation & JSON support
+    // 🔹 Navigation & UI dependencies
     implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.compose.material:material-icons-extended:1.6.3")
+    
+    // 🔹 JSON & Coroutines
     implementation("com.google.code.gson:gson:2.10.1")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.runtime:runtime:1.6.0") // or newer
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    
+    // 🔹 Lifecycle ViewModel for Compose (if not already present)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
 
-    // 🔥 Firebase dependencies
-    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
+    // 🔥 Firebase dependencies - Updated to recommended versions
+    implementation(platform("com.google.firebase:firebase-bom:32.7.2")) // Updated version
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
-    implementation("com.google.firebase:firebase-storage-ktx:21.0.0")
+    implementation("com.google.firebase:firebase-storage-ktx")
 
     // Testing (keep as is)
     testImplementation(libs.junit)
