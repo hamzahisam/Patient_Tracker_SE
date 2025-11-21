@@ -33,30 +33,45 @@ object AuthManager {
         val currentUser = auth.currentUser ?: return null
 
         return try {
-            val doc = db.collection("users").document(currentUser.uid).get().await()
-
-            val days = (doc.get("days") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
-            val timings = (doc.get("timings") as? List<*>)?.mapNotNull {
-                when (it) {
-                    is Long -> it.toInt()
-                    is Int -> it
-                    else -> null
-                }
-            } ?: emptyList()
-
+            val userDoc = db.collection("users").document(currentUser.uid).get().await()
             UserProfile(
                 uid = currentUser.uid,
-                role = doc.getString("role") ?: "",
-                firstName = doc.getString("firstName") ?: "",
-                lastName = doc.getString("lastName") ?: "",
-                email = doc.getString("email") ?: "",
-                humanId = doc.getString("humanId") ?: "",
-                speciality = doc.getString("speciality"),
-                days = days,
-                timings = timings
+                role = userDoc.getString("role") ?: "",
+                firstName = userDoc.getString("firstName") ?: "",
+                lastName = userDoc.getString("lastName") ?: "",
+                email = userDoc.getString("email") ?: "",
+                humanId = userDoc.getString("humanId") ?: "",
+                phoneNumber = userDoc.getString("phoneNumber")
             )
         } catch (e: Exception) {
             null
+        }
+    }
+
+    suspend fun updateCurrentUserProfile(
+        firstName: String,
+        lastName: String,
+        phoneNumber: String
+    ): Boolean {
+        val currentUser = auth.currentUser ?: return false
+
+        val updates = mutableMapOf<String, Any>(
+            "firstName" to firstName,
+            "lastName" to lastName
+        )
+
+        if (phoneNumber.isNotBlank()) {
+            updates["phoneNumber"] = phoneNumber
+        }
+
+        return try {
+            db.collection("users")
+                .document(currentUser.uid)
+                .update(updates as Map<String, Any>)
+                .await()
+            true
+        } catch (e: Exception) {
+            false
         }
     }
 }
@@ -68,7 +83,5 @@ data class UserProfile(
     val lastName: String,
     val email: String,
     val humanId: String,
-    val speciality: String? = null,       // doctor only
-    val days: List<String> = emptyList(), // doctor only
-    val timings: List<Int> = emptyList()  // doctor only
+    val phoneNumber: String? = null
 )

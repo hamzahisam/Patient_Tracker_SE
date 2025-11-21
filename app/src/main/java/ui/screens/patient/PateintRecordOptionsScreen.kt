@@ -34,31 +34,38 @@ fun PatientRecordOptionsScreen(navController: NavController) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF6F8FC))
+                .background(MaterialTheme.colorScheme.background)
                 .padding(24.dp)
                 .padding(padding)
         ) {
-            // --- Back Button Header ---
-            BackButton(
-                navController = navController,
-                modifier = Modifier.padding(start = 6.dp, top = 6.dp)
-            )
+            // --- Header Row with Back Button and Title ---
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopStart),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BackButton(
+                    navController = navController,
+                    modifier = Modifier
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Text(
+                    text = "Records",
+                    color = Color(0xFF4CB7C2),
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(top = 48.dp), // leave space for header
+                    .padding(top = 72.dp),
                 verticalArrangement = Arrangement.Top,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // --- Brand Logo ---
-                Image(
-                    painter = painterResource(id = R.drawable.ic_healthtrack_logo),
-                    contentDescription = "App Logo",
-                    modifier = Modifier
-                        .size(100.dp)
-                        .padding(bottom = 32.dp)
-                )
 
                 // --- Prescriptions & Diagnosis Card ---
                 RecordOptionCard(

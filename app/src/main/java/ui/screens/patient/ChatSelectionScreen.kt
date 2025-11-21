@@ -3,6 +3,7 @@ package com.example.patienttracker.ui.screens.patient
 import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +19,9 @@ import androidx.navigation.NavController
 import com.example.patienttracker.auth.AuthManager
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await   // 👈 NEW
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 
 private const val TAG = "ChatSelectionScreen"
 
@@ -128,8 +132,29 @@ fun ChatSelectionScreen(
 
     Scaffold(
         topBar = {
+            val accent = Color(0xFF4CB7C2)
+
             TopAppBar(
-                title = { Text("Patient Chats") }
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = accent
+                        )
+                    }
+                },
+                title = {
+                    Text(
+                        "Chats",
+                        color = accent
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = accent,
+                    navigationIconContentColor = accent
+                )
             )
         },
         bottomBar = {
@@ -141,7 +166,7 @@ fun ChatSelectionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
-                .background(Color(0xFFF7FBFF))
+                .background(MaterialTheme.colorScheme.background)
         ) {
             when {
                 loading -> {
@@ -153,7 +178,7 @@ fun ChatSelectionScreen(
                 error != null -> {
                     Text(
                         text = "Error: $error",
-                        color = Color.Red,
+                        color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
@@ -191,10 +216,15 @@ private fun DoctorRow(
 ) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = Color(0xFF4CB7C2),
+                shape = MaterialTheme.shapes.medium
+            )
             .clickable { onClick() }
     ) {
         Column(
@@ -205,20 +235,20 @@ private fun DoctorRow(
             Text(
                 text = "Dr. ${doctor.firstName} ${doctor.lastName}",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF1C3D5A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = doctor.specialty,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF0EA5B8)
+                color = MaterialTheme.colorScheme.primary
             )
             if (doctor.humanId.isNotBlank()) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = "ID: ${doctor.humanId}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

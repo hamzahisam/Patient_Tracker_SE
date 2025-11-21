@@ -44,8 +44,9 @@ import ui.screens.patient.MedicalRecord
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientRecordOptionsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientReportsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientPrescriptionsScreen
-import com.example.patienttracker.ui.screens.patient.SettingsScreen
 import com.example.patienttracker.ui.screens.patient.EnhancedProfileScreen
+import com.example.patienttracker.ui.screens.patient.SettingsScreen
+import ui.screens.doctor.DoctorEnhancedProfileScreen
 
 object Route {
     const val SPLASH = "splash"
@@ -351,6 +352,10 @@ fun AppNavHost(context: Context) {
             SettingsScreen(navController)
         }
 
+        composable("account_settings") {
+            SettingsScreen(navController)
+        }
+
         composable("enhanced_profile") {
             EnhancedProfileScreen(navController)
         }
@@ -429,7 +434,7 @@ fun AppNavHost(context: Context) {
         }
 
         composable("doctor_profile") {
-            DoctorProfileScreen(navController)
+            DoctorEnhancedProfileScreen(navController)
         }
     }
 }

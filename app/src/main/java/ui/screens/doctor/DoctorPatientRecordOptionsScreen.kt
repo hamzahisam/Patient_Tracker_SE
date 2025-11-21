@@ -3,15 +3,21 @@ package com.example.patienttracker.ui.screens.doctor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -20,6 +26,7 @@ import androidx.navigation.NavController
 import androidx.compose.foundation.Image
 import com.example.patienttracker.R
 import com.example.patienttracker.ui.screens.doctor.DoctorBottomBar
+import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun DoctorPatientRecordOptionsScreen(
@@ -42,18 +49,42 @@ fun DoctorPatientRecordOptionsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF6F8FC))
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color(0xFF4CB7C2)
+                    )
+                }
+
+                Spacer(Modifier.width(4.dp))
+
+                Text(
+                    text = "Records",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF4CB7C2)
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
 
             Text(
                 text = patientName.ifBlank { "Patient $patientId" },
                 style = MaterialTheme.typography.titleLarge,
-                color = Color(0xFF1C3D5A),
-                modifier = Modifier.padding(bottom = 32.dp)
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 24.dp)
             )
 
             // 🔹 1) Prescriptions & Diagnosis – doctor can edit here

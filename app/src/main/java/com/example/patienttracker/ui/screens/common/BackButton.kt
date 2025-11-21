@@ -18,16 +18,15 @@ import androidx.compose.foundation.shape.CircleShape
 fun BackButton(navController: NavController, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(48.dp)                 // small box for the arrow
-            .background(Color(0xFF4CB7C2), shape = CircleShape) // app theme color
-            .clickable { navController.popBackStack() },        // go back one screen
+            .size(32.dp)
+            .clickable { navController.popBackStack() },
         contentAlignment = androidx.compose.ui.Alignment.Center
     ) {
         Icon(
             painter = painterResource(id = R.drawable.ic_back_arrow),
             contentDescription = "Back",
-            tint = Color.White,
-            modifier = Modifier.size(24.dp)
+            tint = Color(0xFF4CB7C2),
+            modifier = Modifier.size(28.dp)
         )
     }
 }

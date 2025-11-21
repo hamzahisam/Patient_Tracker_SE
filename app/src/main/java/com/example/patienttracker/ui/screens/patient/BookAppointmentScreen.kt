@@ -2,21 +2,25 @@ package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.patienttracker.data.AppointmentStorage
+import com.example.patienttracker.ui.screens.patient.PatientBottomBar
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import java.time.LocalDate
@@ -34,8 +38,6 @@ fun BookAppointmentScreen(
     context: Context,
     doctor: DoctorFull
 ) {
-    val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
-
     val availableDays = doctor.days.split(",").map { it.trim().lowercase(Locale.ROOT) }
     val timing = doctor.timings
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
@@ -59,33 +61,40 @@ fun BookAppointmentScreen(
 
     Scaffold(
         topBar = {
-            Surface(color = Color.Transparent, tonalElevation = 0.dp) {
-                Box(
+            Surface(
+                color = MaterialTheme.colorScheme.background,
+                tonalElevation = 0.dp
+            ) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(gradient)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // --- Back Button ---
                     BackButton(
                         navController = navController,
-                        modifier = Modifier.align(Alignment.CenterStart)
+                        modifier = Modifier
                     )
 
-                    // --- Title ---
+                    Spacer(modifier = Modifier.width(16.dp))
+
                     Text(
                         text = "Book Appointment",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        modifier = Modifier.align(Alignment.Center)
+                        color = Color(0xFF4CB7C2),
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 }
             }
+        },
+        bottomBar = {
+            PatientBottomBar(navController = navController)
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -210,7 +219,8 @@ fun DatePicker(
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isSelected) Color(0xFF3CC7CD) else Color(0xFFEAF7F8),
+                color = if (isSelected) Color(0xFF3CC7CD) else MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, Color(0xFF4CB7C2)),
                 shadowElevation = if (isSelected) 4.dp else 0.dp,
                 modifier = Modifier
                     .width(72.dp)
@@ -225,13 +235,13 @@ fun DatePicker(
                     Text(
                         text = date.dayOfMonth.toString(),
                         style = MaterialTheme.typography.titleMedium,
-                        color = if (isSelected) Color.White else Color(0xFF2A6C74)
+                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
                     )
                     // short day name (MON, TUE…)
                     Text(
                         text = date.dayOfWeek.name.take(3),
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isSelected) Color.White else Color(0xFF2A6C74)
+                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

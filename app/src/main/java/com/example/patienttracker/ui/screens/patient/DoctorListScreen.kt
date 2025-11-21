@@ -4,6 +4,9 @@ import android.content.Context
 import android.os.Parcelable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -41,7 +43,6 @@ fun DoctorListScreen(
     context: Context,
     specialityFilter: String?
 ) {
-    val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
 
     val db = Firebase.firestore
     var doctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
@@ -118,27 +119,30 @@ fun DoctorListScreen(
 
     Scaffold(
         topBar = {
-            Surface(color = Color.Transparent, tonalElevation = 0.dp) {
-                Box(
+            Surface(
+                color = MaterialTheme.colorScheme.background,
+                tonalElevation = 0.dp
+            ) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(gradient)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Back Button
                     BackButton(
                         navController = navController,
-                        modifier = Modifier.align(Alignment.CenterStart)
+                        modifier = Modifier
                     )
 
-                    // Title
+                    Spacer(modifier = Modifier.width(16.dp))
+
                     Text(
                         text = specialityFilter?.ifBlank { "All Doctors" } ?: "All Doctors",
-                        color = Color.White,
+                        color = Color(0xFF4CB7C2),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.align(Alignment.Center)
+                        )
                     )
                 }
             }
@@ -149,7 +153,7 @@ fun DoctorListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
-                .background(Color(0xFFF6F8FC)),
+                .background(MaterialTheme.colorScheme.background),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(16.dp)
         ) {
@@ -195,14 +199,14 @@ fun DoctorCard(
     Surface(
         shape = RoundedCornerShape(20.dp),
         tonalElevation = 2.dp,
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
                 text = "Dr. ${doctor.firstName} ${doctor.lastName}",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF1C3D5A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = doctor.speciality,
@@ -211,10 +215,16 @@ fun DoctorCard(
             )
             Spacer(Modifier.height(4.dp))
             if (doctor.days.isNotBlank()) {
-                Text("Days: ${doctor.days}", color = Color(0xFF2A6C74))
+                Text(
+                    text = "Days: ${doctor.days}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             if (doctor.timings.isNotBlank()) {
-                Text("Timings: ${doctor.timings}", color = Color(0xFF2A6C74))
+                Text(
+                    text = "Timings: ${doctor.timings}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Spacer(Modifier.height(12.dp))
             Button(

@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,13 +14,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +35,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+
+import com.example.patienttracker.data.firebase.AppUser
+import com.example.patienttracker.data.firebase.UserRepository
 
 // Firebase imports
 import com.google.firebase.Timestamp
@@ -50,6 +56,7 @@ enum class MessageStatus {
     SENT, DELIVERED, READ
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     navController: NavController,
@@ -57,21 +64,32 @@ fun ChatScreen(
     doctorId: String,
     currentUserRole: String = "patient" // "patient" when called from patient side, "doctor" from doctor side
 ) {
-    val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
-
-    // Get the selected doctor object (if passed from previous screen)
-    val doctor = navController.previousBackStackEntry
-        ?.savedStateHandle
-        ?.get<DoctorFull>("selectedDoctor")
+    // Doctor info for the header – loaded via UserRepository
+    var doctorUser by remember { mutableStateOf<AppUser?>(null) }
 
     var patientId by remember { mutableStateOf("") }
 
+    // Load current patient profile
     LaunchedEffect(Unit) {
         try {
             val profile = AuthManager.getCurrentUserProfile()
             patientId = profile?.humanId ?: ""
         } catch (e: Exception) {
             patientId = ""
+        }
+    }
+
+    // Load doctor profile using their humanId (doctorId) and role = "doctor"
+    LaunchedEffect(doctorId) {
+        if (doctorId.isNotBlank()) {
+            try {
+                doctorUser = UserRepository.getUserByHumanId(
+                    humanId = doctorId,
+                    role = "doctor"
+                )
+            } catch (e: Exception) {
+                Log.w("ChatScreen", "Failed to load doctor user", e)
+            }
         }
     }
 
@@ -116,15 +134,29 @@ fun ChatScreen(
                         val text = doc.getString("text") ?: ""
                         val senderRole = doc.getString("senderRole") ?: "patient"
                         val ts = doc.getTimestamp("timestamp")?.toDate() ?: Date()
-                        val statusStr = doc.getString("status") ?: "SENT"
-                        val status = runCatching { MessageStatus.valueOf(statusStr) }.getOrElse { MessageStatus.SENT }
+                        val statusStr = (doc.getString("status") ?: "SENT").uppercase()
+                        var status = runCatching { MessageStatus.valueOf(statusStr) }.getOrElse { MessageStatus.SENT }
+
+                        val isSentByMe = (senderRole == currentUserRole)
+
+                        // 1) Messages I sent: if they are still SENT, mark them as DELIVERED (two grey ticks).
+                        if (isSentByMe && status == MessageStatus.SENT) {
+                            doc.reference.update("status", MessageStatus.DELIVERED.name)
+                            status = MessageStatus.DELIVERED
+                        }
+
+                        // 2) Messages from the other user: when viewing this screen, mark them as READ.
+                        if (!isSentByMe && status != MessageStatus.READ) {
+                            doc.reference.update("status", MessageStatus.READ.name)
+                            status = MessageStatus.READ
+                        }
 
                         chatMessages.add(
                             ChatMessage(
                                 id = doc.id,
                                 text = text,
                                 timestamp = ts,
-                                isSentByMe = (senderRole == currentUserRole),
+                                isSentByMe = isSentByMe,
                                 status = status
                             )
                         )
@@ -147,43 +179,47 @@ fun ChatScreen(
 
     Scaffold(
         topBar = {
-            Surface(
-                color = Color.Transparent,
-                tonalElevation = 0.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(gradient)
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Back button
-                    Text(
-                        text = "←",
-                        modifier = Modifier
-                            .clickable { navController.popBackStack() }
-                            .padding(end = 16.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
-                    )
+            val accent = Color(0xFF4CB7C2)
 
-                    Column(
-                        modifier = Modifier.weight(1f)
+            CenterAlignedTopAppBar(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    navigationIconContentColor = accent,
+                    titleContentColor = accent
+                ),
+                navigationIcon = {
+                    IconButton(
+                        onClick = { navController.popBackStack() }
                     ) {
-                        Text(
-                            text = doctor?.let { "Dr. ${it.firstName} ${it.lastName}" } ?: "Doctor",
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = doctor?.speciality ?: "",
-                            color = Color.White.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.labelSmall
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = "Back"
                         )
                     }
+                },
+                title = {
+                    val fullName = doctorUser?.let {
+                        listOf(it.firstName, it.lastName)
+                            .filter { part -> part.isNotBlank() }
+                            .joinToString(" ")
+                    }
+
+                    Column {
+                        Text(
+                            text = fullName?.let { "Dr. $it" } ?: "Doctor",
+                            color = accent,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        if (!doctorUser?.speciality.isNullOrBlank()) {
+                            Text(
+                                text = doctorUser?.speciality ?: "",
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
                 }
-            }
+            )
         },
         bottomBar = {
             // Global patient bottom bar
@@ -194,7 +230,7 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFF6F8FC))
+                .background(MaterialTheme.colorScheme.background)
         ) {
             // Messages list
             LazyColumn(
@@ -223,20 +259,26 @@ fun ChatScreen(
                 BasicTextField(
                     value = messageText,
                     onValueChange = { messageText = it },
+                    cursorBrush = SolidColor(Color(0xFF4CB7C2)),
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(25.dp))
-                        .background(Color.White)
+                        .border(
+                            width = 1.dp,
+                            color = Color(0xFF4CB7C2),
+                            shape = RoundedCornerShape(25.dp)
+                        )
+                        .background(MaterialTheme.colorScheme.surface)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     textStyle = TextStyle(
-                        color = Color.Black,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 16.sp
                     ),
                     decorationBox = { innerTextField ->
                         if (messageText.isEmpty()) {
                             Text(
                                 "Type a message...",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 16.sp
                             )
                         }
@@ -277,7 +319,9 @@ fun ChatScreen(
                         imageVector = Icons.Default.Send,
                         contentDescription = "Send message",
                         tint = if (messageText.isNotBlank() && patientId.isNotEmpty())
-                            Color(0xFF4CB7C2) else Color.Gray
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -309,12 +353,31 @@ fun ChatMessageBubble(message: ChatMessage) {
                             bottomEnd = if (isMyMessage) 4.dp else 16.dp
                         )
                     )
-                    .background(if (isMyMessage) Color(0xFF4CB7C2) else Color.White)
+                    .then(
+                        if (!isMyMessage) {
+                            Modifier.border(
+                                width = 1.dp,
+                                color = Color(0xFF4CB7C2),
+                                shape = RoundedCornerShape(
+                                    topStart = 16.dp,
+                                    topEnd = 16.dp,
+                                    bottomStart = if (isMyMessage) 16.dp else 4.dp,
+                                    bottomEnd = if (isMyMessage) 4.dp else 16.dp
+                                )
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .background(
+                        if (isMyMessage) Color(0xFF4CB7C2)
+                        else MaterialTheme.colorScheme.surface
+                    )
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 Text(
                     text = message.text,
-                    color = if (isMyMessage) Color.White else Color.Black,
+                    color = if (isMyMessage) Color.White else MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -331,9 +394,9 @@ fun ChatMessageBubble(message: ChatMessage) {
                             MessageStatus.READ -> "✓✓"
                         },
                         color = when (message.status) {
-                            MessageStatus.SENT -> Color.Gray
-                            MessageStatus.DELIVERED -> Color.Gray
-                            MessageStatus.READ -> Color(0xFF4CB7C2)
+                            MessageStatus.SENT -> MaterialTheme.colorScheme.onSurfaceVariant
+                            MessageStatus.DELIVERED -> MaterialTheme.colorScheme.onSurfaceVariant
+                            MessageStatus.READ -> MaterialTheme.colorScheme.primary
                         },
                         fontSize = 12.sp,
                         modifier = Modifier.padding(end = 4.dp)
@@ -342,7 +405,7 @@ fun ChatMessageBubble(message: ChatMessage) {
 
                 Text(
                     text = timeFormatter.format(message.timestamp),
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }

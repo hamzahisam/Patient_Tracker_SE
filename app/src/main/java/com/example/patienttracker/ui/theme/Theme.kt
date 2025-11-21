@@ -2,7 +2,6 @@ package com.example.patienttracker.ui.theme
 
 import android.content.Context
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -12,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -55,13 +55,26 @@ val LocalAppTheme = staticCompositionLocalOf { AppThemeState() }
 
 @Composable
 fun PatientTrackerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val context = LocalContext.current
-    val themeState = rememberThemeState(context)
-    
+    val context = LocalContext.current.applicationContext
+
+    var isDarkMode by rememberSaveable {
+        mutableStateOf(ThemeManager.isDarkModeEnabled(context))
+    }
+
+    val themeState = remember(isDarkMode) {
+        AppThemeState(
+            isDarkMode = isDarkMode,
+            toggleTheme = {
+                val newValue = !isDarkMode
+                isDarkMode = newValue
+                ThemeManager.setDarkModeEnabled(context, newValue)
+            }
+        )
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val dynamicDark = dynamicDarkColorScheme(context)
@@ -77,23 +90,6 @@ fun PatientTrackerTheme(
             colorScheme = colorScheme,
             typography = Typography,
             content = content
-        )
-    }
-}
-
-@Composable
-fun rememberThemeState(context: android.content.Context): AppThemeState {
-    var isDarkMode by remember { 
-        mutableStateOf(ThemeManager.isDarkModeEnabled(context)) 
-    }
-    
-    return remember {
-        AppThemeState(
-            isDarkMode = isDarkMode,
-            toggleTheme = { 
-                isDarkMode = !isDarkMode
-                ThemeManager.setDarkModeEnabled(context, isDarkMode)
-            }
         )
     }
 }

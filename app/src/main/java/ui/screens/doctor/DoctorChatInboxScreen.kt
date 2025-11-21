@@ -22,7 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import com.google.firebase.firestore.Query
 import androidx.compose.foundation.layout.WindowInsetsSides
-
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 
 
 private const val TAG = "DoctorChatInbox"
@@ -161,12 +162,26 @@ fun DoctorChatInboxScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF4CB7C2)
+                        )
+                    }
+                },
                 title = {
                     Text(
                         "Patient Chats",
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color(0xFF4CB7C2)
                     )
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = Color(0xFF4CB7C2)
+                )
             )
         },
             bottomBar = { DoctorBottomBar(navController, selectedTab = 2) },
@@ -179,7 +194,7 @@ fun DoctorChatInboxScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFF7FBFF))
+                .background(MaterialTheme.colorScheme.background)
         ) {
             when {
                 loading -> {
@@ -200,7 +215,7 @@ fun DoctorChatInboxScreen(
                     Text(
                         text = "No patient messages yet.",
                         modifier = Modifier.align(Alignment.Center),
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -236,7 +251,7 @@ private fun PatientChatRow(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp
     ) {
         Row(
@@ -272,13 +287,13 @@ private fun PatientChatRow(
                 Text(
                     text = conversation.patientName,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color(0xFF123047)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (conversation.lastMessage.isNotBlank()) {
                     Text(
                         text = conversation.lastMessage,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF5F7484),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1
                     )
                 }

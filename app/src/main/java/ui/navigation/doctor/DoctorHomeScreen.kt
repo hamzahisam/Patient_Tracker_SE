@@ -6,6 +6,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -105,12 +106,13 @@ fun DoctorHomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(inner)
         ) {
             DoctorHeader(
                 gradient = gradient,
-                greeting = "Hi, welcome back",
-                name = "Dr. $resolvedFirst $resolvedLast",
+                greeting = "Hi,",
+                name = "Dr. $resolvedFirst",
                 initials = initials,
                 onBell = { /* TODO: open notifications */ },
                 onSettings = { /* TODO: open settings */ },
@@ -151,7 +153,7 @@ private fun DoctorHeader(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        color = Color(0xFFF7F9FC),
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp)
     ) {
         Row(
@@ -176,13 +178,13 @@ private fun DoctorHeader(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     greeting,
-                    color = Color(0xFF5AA8AC),
+                    color = Color(0xFF4CB7C2),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     name,
-                    color = Color(0xFF1C3D5A),
+                    color = Color.White,
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
@@ -191,11 +193,11 @@ private fun DoctorHeader(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFDBE6EF))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable { onProfile() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(initials, color = Color(0xFF1C3D5A), fontWeight = FontWeight.SemiBold)
+                Text(initials, color = Color.White, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -207,7 +209,8 @@ private fun IconBubble(@DrawableRes iconRes: Int, onClick: () -> Unit) {
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(Color(0xFFE9F3F9))
+            .background(MaterialTheme.colorScheme.background)
+            .border(1.dp, Color(0xFF4CB7C2), CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -375,9 +378,9 @@ private fun DoctorSchedule(
 
     Surface(
         modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFFEFF7F9))
+            .padding(horizontal = 16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -388,12 +391,12 @@ private fun DoctorSchedule(
                 Text(
                     "Appointments",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color(0xFF2B6F75)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     "See all",
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF2B6F75)
+                    color = Color(0xFF4CB7C2)
                 )
             }
 
@@ -408,7 +411,7 @@ private fun DoctorSchedule(
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
-                            color = Color(0xFF2B6F75),
+                            color = MaterialTheme.colorScheme.primary,
                             strokeWidth = 3.dp
                         )
                     }
@@ -417,7 +420,7 @@ private fun DoctorSchedule(
                 apptError != null -> {
                     Text(
                         text = apptError ?: "Error loading appointments.",
-                        color = Color(0xFFE53935),
+                        color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -425,7 +428,7 @@ private fun DoctorSchedule(
                 appointmentsForDay.isEmpty() -> {
                     Text(
                         "No appointments for this day.",
-                        color = Color(0xFF5F6970),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -449,16 +452,18 @@ private fun DoctorSchedule(
 @Composable
 private fun DayPill(chip: DayChip, selected: Boolean, onClick: () -> Unit) {
     val bg by animateColorAsState(
-        if (selected) Color(0xFF4FC2C9) else Color(0xFFEFF7F9),
+        if (selected) Color(0xFF4FC2C9) else Color.Transparent,
         label = "pill-bg"
     )
-    val fg = if (selected) Color.White else Color(0xFF295B62)
+    val borderColor = if (selected) Color(0xFF4FC2C9) else Color(0xFF4CB7C2)
+    val fg = if (selected) Color.White else Color(0xFF4CB7C2)
 
     Column(
         modifier = Modifier
             .width(86.dp)
             .clip(RoundedCornerShape(40.dp))
             .background(bg)
+            .border(1.dp, borderColor, RoundedCornerShape(40.dp))
             .clickable { onClick() }
             .padding(vertical = 10.dp),
         verticalArrangement = Arrangement.Center,
@@ -496,7 +501,7 @@ private fun sampleAppointmentsFor(date: LocalDate): List<Appointment> {
 @Composable
 private fun AppointmentCard(item: Appointment) {
     Surface(
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
@@ -511,21 +516,21 @@ private fun AppointmentCard(item: Appointment) {
                 Text(
                     item.time,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF0D3B40)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     item.reason,
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF2B6F75)
+                    color = Color(0xFF4CB7C2)
                 )
             }
             Spacer(Modifier.height(6.dp))
-            Divider(color = Color(0x1A000000))
+            Divider(color = Color.White.copy(alpha = 0.15f))
             Spacer(Modifier.height(6.dp))
             Text(
                 "Patient • ${item.patientName}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF0D3B40)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -542,7 +547,7 @@ fun DoctorBottomBar(
     Surface(
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
-        color = Color(0xFFF6F8FC)
+        color = MaterialTheme.colorScheme.surface
     ) {
         Box(
             modifier = Modifier
@@ -554,7 +559,7 @@ fun DoctorBottomBar(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth(),
-                color = Color(0x14000000)
+                color = Color.White.copy(alpha = 0.1f)
             )
             Row(
                 modifier = Modifier
@@ -814,8 +819,8 @@ fun DoctorPatientsScreen(navController: NavController) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFF6F8FC))
-                    .padding(16.dp),
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(top = 40.dp, start = 16.dp, end = 16.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -824,13 +829,13 @@ fun DoctorPatientsScreen(navController: NavController) {
                     modifier = Modifier
                         .size(28.dp)
                         .clickable { navController.popBackStack() },
-                    tint = Color(0xFF1C3D5A)
+                    tint = Color(0xFF4CB7C2)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     "My Patients",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF1C3D5A)
+                    color = Color(0xFF4CB7C2)
                 )
             }
         },
@@ -843,18 +848,19 @@ fun DoctorPatientsScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFF6F8FC))
+                .background(MaterialTheme.colorScheme.background)
         ) {
             when {
                 loading -> {
                     CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 error != null -> {
                     Text(
                         text = "Error: $error",
-                        color = Color.Red,
+                        color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
@@ -862,7 +868,7 @@ fun DoctorPatientsScreen(navController: NavController) {
                     Text(
                         text = "No patients have booked with you yet.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF5F6970),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
@@ -897,12 +903,13 @@ fun DoctorPatientsScreen(navController: NavController) {
 @Composable
 private fun DoctorPatientRow(item: DoctorPatientItem, onClick: () -> Unit) {
     Surface(
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
+            .border(1.dp, Color(0xFF4CB7C2), RoundedCornerShape(16.dp))
             .clickable { onClick() }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -912,20 +919,20 @@ private fun DoctorPatientRow(item: DoctorPatientItem, onClick: () -> Unit) {
                     .joinToString(" ")
                     .ifBlank { "Patient ${item.patientId}" },
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF0D3B40)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "ID: ${item.patientId}",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF5F6970)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (item.lastVisitDate.isNotBlank()) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = "Last visit: ${item.lastVisitDate}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF5F6970)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

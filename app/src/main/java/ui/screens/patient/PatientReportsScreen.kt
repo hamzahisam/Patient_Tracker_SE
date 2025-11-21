@@ -30,11 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import com.example.patienttracker.auth.AuthManager
+import androidx.compose.material3.MaterialTheme
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.Blob
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.example.patienttracker.ui.screens.patient.PatientBottomBar
 import java.io.File
 import java.io.Serializable
 
@@ -192,22 +194,36 @@ fun PatientReportsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = {
+                    Text(
+                        text = title,
+                        color = Color(0xFF4CB7C2)
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.navigateUp() }) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
+                            tint = Color(0xFF4CB7C2)
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    navigationIconContentColor = Color(0xFF4CB7C2),
+                    titleContentColor = Color(0xFF4CB7C2)
+                )
             )
+        },
+        bottomBar = {
+            PatientBottomBar(navController = navController)
         }
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF6F8FC))
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
         ) {
             when {
@@ -236,7 +252,8 @@ fun PatientReportsScreen(
                         // empty state text
                         Text(
                             text = "You don't have any $entityPlural yet.",
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         if (effectiveCanUpload) {
@@ -358,7 +375,7 @@ private fun RecordRow(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
@@ -388,13 +405,14 @@ private fun RecordRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = record.title.ifBlank { record.fileName },
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 record.createdAt?.toDate()?.let { date ->
                     Text(
                         text = date.toString(), // TODO: pretty-format later
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -412,6 +430,7 @@ private fun RecordRow(
         }
     }
 }
+
 
 // ---------- Helpers ----------
 

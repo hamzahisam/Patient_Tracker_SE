@@ -28,7 +28,7 @@ import com.example.patienttracker.ui.theme.LocalAppTheme
 fun SettingsScreen(navController: NavController) {
     val context = LocalContext.current
     val themeState = LocalAppTheme.current
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -71,9 +71,9 @@ fun SettingsScreen(navController: NavController) {
                     navController.navigate("enhanced_profile")
                 }
             )
-            
+
             Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            
+
             // Theme Settings
             ThemeSettingsItem(
                 title = "Theme",
@@ -85,7 +85,7 @@ fun SettingsScreen(navController: NavController) {
                     ThemeManager.setDarkModeEnabled(context, newDarkMode)
                 }
             )
-            
+
             Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
         }
     }
@@ -121,9 +121,9 @@ private fun SettingsItem(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -134,14 +134,14 @@ private fun SettingsItem(
                     ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                
+
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
-            
+
             Icon(
                 imageVector = Icons.Default.KeyboardArrowRight,
                 contentDescription = "Navigate",
@@ -179,9 +179,9 @@ private fun ThemeSettingsItem(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -192,14 +192,14 @@ private fun ThemeSettingsItem(
                     ),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                
+
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
-            
+
             Switch(
                 checked = isDarkMode,
                 onCheckedChange = { onThemeToggle() },

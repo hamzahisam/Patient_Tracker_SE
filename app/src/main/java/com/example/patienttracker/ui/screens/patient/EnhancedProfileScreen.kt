@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,19 +32,22 @@ import com.google.firebase.ktx.Firebase
 fun EnhancedProfileScreen(navController: NavController) {
     var showLogoutDialog by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
-    
+    val accent = Color(0xFF4CB7C2)
+
+    val scope = rememberCoroutineScope()
+
     // Load current user data
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    
+
     LaunchedEffect(Unit) {
         val profile = AuthManager.getCurrentUserProfile()
         firstName = profile?.firstName ?: ""
         lastName = profile?.lastName ?: ""
         email = Firebase.auth.currentUser?.email ?: ""
-        // You might want to store phone in your user profile
+        phone = profile?.phoneNumber ?: ""
     }
 
     // Logout dialog
@@ -97,9 +102,16 @@ fun EnhancedProfileScreen(navController: NavController) {
                     if (isEditing) {
                         IconButton(
                             onClick = {
-                                // Save changes to database
-                                // You'll need to implement this in AuthManager
-                                isEditing = false
+                                scope.launch {
+                                    val success = AuthManager.updateCurrentUserProfile(
+                                        firstName = firstName.trim(),
+                                        lastName = lastName.trim(),
+                                        phoneNumber = phone.trim()
+                                    )
+                                    if (success) {
+                                        isEditing = false
+                                    }
+                                }
                             }
                         ) {
                             Icon(
@@ -162,16 +174,16 @@ fun EnhancedProfileScreen(navController: NavController) {
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Text(
                         text = "$firstName $lastName",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = accent
                     )
-                    
+
                     Text(
                         text = "Patient",
                         fontSize = 14.sp,
@@ -197,7 +209,7 @@ fun EnhancedProfileScreen(navController: NavController) {
                             text = "Personal Information",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = accent
                         )
 
                         // First Name
@@ -263,7 +275,7 @@ fun EnhancedProfileScreen(navController: NavController) {
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
+                        containerColor = Color(0xFFFF4444) // bright red
                     )
                 ) {
                     Text(
@@ -291,11 +303,11 @@ private fun ProfileField(
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.SemiBold
             ),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            color = Color(0xFF4CB7C2)
         )
-        
+
         Spacer(modifier = Modifier.height(4.dp))
-        
+
         if (isEditing) {
             OutlinedTextField(
                 value = value,
@@ -312,7 +324,7 @@ private fun ProfileField(
             Text(
                 text = value.ifBlank { "Not set" },
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(
+                color = Color(0xFF4CB7C2).copy(
                     alpha = if (value.isBlank()) 0.5f else 1f
                 ),
                 modifier = Modifier
