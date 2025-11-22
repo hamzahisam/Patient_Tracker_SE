@@ -173,7 +173,7 @@ fun DoctorListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
-                .background(Color(0xFFF6F8FC))
+                .background(MaterialTheme.colorScheme.background) // FIX 1: Changed from hardcoded to theme
         ) {
             // Search Bar
             SearchBar(
@@ -187,7 +187,7 @@ fun DoctorListScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFF6F8FC)),
+                    .background(MaterialTheme.colorScheme.background), // FIX 2: Changed from hardcoded to theme
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
@@ -301,9 +301,9 @@ fun SearchBar(
             }
         ),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            disabledContainerColor = Color.White,
+            focusedContainerColor = MaterialTheme.colorScheme.background, // FIX 3: Changed from hardcoded to theme
+            unfocusedContainerColor = MaterialTheme.colorScheme.background, // FIX 3: Changed from hardcoded to theme
+            disabledContainerColor = MaterialTheme.colorScheme.background, // FIX 3: Changed from hardcoded to theme
             focusedIndicatorColor = Color(0xFF4CB7C2),
             unfocusedIndicatorColor = Color(0xFFB9E3E7),
             focusedTextColor = Color(0xFF1C3D5A),
