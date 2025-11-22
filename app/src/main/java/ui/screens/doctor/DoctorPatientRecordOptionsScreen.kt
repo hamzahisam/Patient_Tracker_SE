@@ -3,7 +3,6 @@ package com.example.patienttracker.ui.screens.doctor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -17,8 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -34,14 +31,6 @@ fun DoctorPatientRecordOptionsScreen(
     patientId: String,
     patientName: String
 ) {
-    // 🔹 Separate gradients for the two cards
-    val gradientPrescriptions = Brush.linearGradient(
-        listOf(Color(0xFF6DD5FA), Color(0xFF2980B9))
-    )
-    val gradientReports = Brush.linearGradient(
-        listOf(Color(0xFFB2EBF2), Color(0xFF0097A7))
-    )
-
     Scaffold(
         // Patients tab is conceptually active here
         bottomBar = { DoctorBottomBar(navController, selectedTab = 2) }
@@ -90,8 +79,7 @@ fun DoctorPatientRecordOptionsScreen(
             // 🔹 1) Prescriptions & Diagnosis – doctor can edit here
             DoctorRecordOptionCard(
                 title = "Prescriptions & Diagnosis",
-                iconRes = R.drawable.ic_doctor,   // or a separate icon if you have one
-                gradient = gradientPrescriptions
+                iconRes = R.drawable.ic_doctor   // or a separate icon if you have one
             ) {
                 navController.navigate(
                     "doctor_patient_prescriptions_screen/$patientId/$patientName"
@@ -103,8 +91,7 @@ fun DoctorPatientRecordOptionsScreen(
             // 🔹 2) Reports – read-only for doctor, separate from prescriptions
             DoctorRecordOptionCard(
                 title = "Reports",
-                iconRes = R.drawable.ic_records,
-                gradient = gradientReports
+                iconRes = R.drawable.ic_records
             ) {
                 navController.navigate(
                     "doctor_patient_reports_screen/$patientId/$patientName"
@@ -118,20 +105,22 @@ fun DoctorPatientRecordOptionsScreen(
 private fun DoctorRecordOptionCard(
     title: String,
     iconRes: Int,
-    gradient: Brush,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp)
+            .height(200.dp)
             .shadow(8.dp, RoundedCornerShape(24.dp))
             .clickable { onClick() },
-        shape = RoundedCornerShape(24.dp)
+        shape = RoundedCornerShape(24.dp),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Box(
             modifier = Modifier
-                .background(gradient)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
                 .fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
@@ -143,12 +132,13 @@ private fun DoctorRecordOptionCard(
                     painter = painterResource(id = iconRes),
                     contentDescription = title,
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(72.dp)
                         .padding(bottom = 16.dp)
                 )
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
                 )
             }
         }

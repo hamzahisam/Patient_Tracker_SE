@@ -47,6 +47,8 @@ import com.example.patienttracker.ui.screens.doctor.DoctorPatientPrescriptionsSc
 import com.example.patienttracker.ui.screens.patient.EnhancedProfileScreen
 import com.example.patienttracker.ui.screens.patient.SettingsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorSettingsScreen
+import com.example.patienttracker.ui.screens.patient.PatientRecordDoctorListScreen
+import com.example.patienttracker.ui.screens.patient.SpecialtiesScreen
 
 
 object Route {
@@ -257,8 +259,17 @@ fun AppNavHost(context: Context) {
         }
 
         // Patient record entry screens
-        composable("patient_record_options") {
-            PatientRecordOptionsScreen(navController)
+        composable(
+            route = "patient_record_options/{doctorKey}",
+            arguments = listOf(
+                navArgument("doctorKey") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val doctorKey = backStackEntry.arguments?.getString("doctorKey").orEmpty()
+            PatientRecordOptionsScreen(
+                navController = navController,
+                doctorKey = doctorKey
+            )
         }
 
         composable("patient_reports_screen") {
@@ -445,6 +456,15 @@ fun AppNavHost(context: Context) {
 
         composable("doctor_profile") {
             EnhancedProfileScreen(navController)
+        }
+
+        // Patient specialties grid screen (from "Specialties" button on home)
+        composable("patient_specialties") {
+            SpecialtiesScreen(navController)
+        }
+
+        composable("record_doctor_list") {
+            PatientRecordDoctorListScreen(navController = navController)
         }
     }
 }

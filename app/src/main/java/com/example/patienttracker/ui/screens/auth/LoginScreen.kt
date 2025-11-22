@@ -2,6 +2,7 @@ package com.example.patienttracker.ui.screens.auth
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -19,15 +20,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.patienttracker.R
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.PaddingValues
 
 @Composable
 fun LoginScreen(
     onLogin: () -> Unit,
     onSignUp: () -> Unit,
 ) {
+    // Use theme background (dark in your app)
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color.White
+        color = MaterialTheme.colorScheme.background
     ) {
         Box(
             modifier = Modifier
@@ -36,42 +41,33 @@ fun LoginScreen(
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Spacer(Modifier.height(12.dp)) // top breathing room
+                Spacer(Modifier.height(12.dp))
 
                 // Logo + Title
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_healthtrack_logo),
                         contentDescription = "HealthTrack logo",
-                        modifier = Modifier
-                            .size(180.dp)
-                    )
-
-                    Spacer(Modifier.height(12.dp))
-
-                    Text(
-                        text = "HealthTrack",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 0.5.sp
-                        ),
-                        color = Color(0xFF05B8C7) // teal-cyan brand
+                        modifier = Modifier.size(180.dp)
                     )
 
                     Spacer(Modifier.height(16.dp))
 
                     Text(
-                        text = "Track your health, keep records handy, and share securely with your doctor.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF6B7280),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        text = "Patient Tracker",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.5.sp
+                        ),
+                        // brand teal/blue
+                        color = Color(0xFF4CB7C2)
                     )
+
+                    Spacer(Modifier.height(16.dp))
                 }
 
                 // Buttons
@@ -89,7 +85,6 @@ fun LoginScreen(
 
                     Spacer(Modifier.height(14.dp))
 
-                    // Secondary (ghost) style to match mock
                     GhostButton(
                         text = "Sign Up",
                         modifier = Modifier.fillMaxWidth(),
@@ -107,18 +102,21 @@ private fun GradientButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    // Brand gradient (cyan → teal)
+    // your blue gradient
     val gradient = Brush.horizontalGradient(
         listOf(Color(0xFF21D4FD), Color(0xFF0EA5B8))
     )
 
-    androidx.compose.material3.Button(
+    Button(
         onClick = onClick,
         modifier = modifier
             .height(56.dp)
             .clip(RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
-        contentPadding = PaddingValues()
+        contentPadding = PaddingValues(),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent
+        )
     ) {
         Box(
             modifier = Modifier
@@ -141,35 +139,44 @@ private fun GhostButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val bg = Color(0xFFEFF6F9)
-    val fg = Color(0xFF0EA5B8)
+    val borderColor = Color(0xFF4CB7C2)
+    val bgDark = Color(0xFF15181E) // card-like dark grey
 
-    androidx.compose.material3.Button(
+    Button(
         onClick = onClick,
         modifier = modifier
             .height(56.dp)
             .clip(RoundedCornerShape(28.dp)),
         shape = RoundedCornerShape(28.dp),
         contentPadding = PaddingValues(),
-        // subtle background with no elevation
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-            containerColor = bg,
-            contentColor = fg
+        colors = ButtonDefaults.buttonColors(
+            containerColor = bgDark,
+            contentColor = borderColor
         ),
-        elevation = androidx.compose.material3.ButtonDefaults.buttonElevation(
+        elevation = ButtonDefaults.buttonElevation(
             defaultElevation = 0.dp,
             pressedElevation = 0.dp,
             focusedElevation = 0.dp
         )
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    color = bgDark,
+                    shape = RoundedCornerShape(28.dp)
+                )
+                .border(
+                    width = 1.dp,
+                    color = borderColor,
+                    shape = RoundedCornerShape(28.dp)
+                ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = fg
+                color = Color(0xFFE5E7EB) // light grey text
             )
         }
     }

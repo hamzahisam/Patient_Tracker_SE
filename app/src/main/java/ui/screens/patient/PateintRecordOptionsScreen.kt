@@ -18,15 +18,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import com.example.patienttracker.R
 import com.example.patienttracker.ui.screens.common.BackButton
 import com.example.patienttracker.ui.screens.patient.PatientBottomBar
 
 
 @Composable
-fun PatientRecordOptionsScreen(navController: NavController) {
-    val gradientPrescriptions = Brush.linearGradient(listOf(Color(0xFF6DD5FA), Color(0xFF2980B9)))
-    val gradientReports = Brush.linearGradient(listOf(Color(0xFFB2EBF2), Color(0xFF0097A7)))
+fun PatientRecordOptionsScreen(
+    navController: NavController,
+    doctorKey: String
+) {
 
     Scaffold(
         bottomBar = { PatientBottomBar(navController) }
@@ -70,21 +72,19 @@ fun PatientRecordOptionsScreen(navController: NavController) {
                 // --- Prescriptions & Diagnosis Card ---
                 RecordOptionCard(
                     title = "Prescriptions & Diagnosis",
-                    iconRes = R.drawable.ic_doctor,
-                    gradient = gradientPrescriptions
+                    iconRes = R.drawable.ic_doctor
                 ) {
-                    navController.navigate("patient_prescriptions_screen")
+                    navController.navigate("patient_prescriptions_screen/$doctorKey")
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(40.dp))
 
                 // --- Reports Card ---
                 RecordOptionCard(
                     title = "Reports",
-                    iconRes = R.drawable.ic_records,
-                    gradient = gradientReports
+                    iconRes = R.drawable.ic_record
                 ) {
-                    navController.navigate("patient_reports_screen")
+                    navController.navigate("patient_reports_screen/$doctorKey")
                 }
             }
         }
@@ -95,21 +95,29 @@ fun PatientRecordOptionsScreen(navController: NavController) {
 private fun RecordOptionCard(
     title: String,
     iconRes: Int,
-    gradient: Brush,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp)
+            .height(200.dp)
+            .border(
+                width = 2.dp,
+                color = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(24.dp)
+            )
             .shadow(8.dp, RoundedCornerShape(24.dp))
             .clickable { onClick() },
-        shape = RoundedCornerShape(24.dp)
+        shape = RoundedCornerShape(24.dp),
+        colors = androidx.compose.material3.CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier
-                .background(gradient)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -120,12 +128,13 @@ private fun RecordOptionCard(
                     painter = painterResource(id = iconRes),
                     contentDescription = title,
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(72.dp)
                         .padding(bottom = 16.dp)
                 )
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(color = Color.White)
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
                 )
             }
         }

@@ -37,6 +37,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import com.example.patienttracker.R
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,6 +56,7 @@ import com.example.patienttracker.data.Appointment
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalContext
 import com.example.patienttracker.auth.AuthManager
+import androidx.compose.foundation.layout.statusBars
 
 
 @Composable
@@ -100,8 +103,8 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
                 onCategoryClick = { category ->
                     when (category.label) {
                         "Doctors" -> navController.navigate("doctor_list/All")
-                        "Specialties" -> navController.navigate("doctor_list/All") // optional
-                        "Record" -> navController.navigate("patient_record_options")
+                        "Specialties" -> navController.navigate("patient_specialties")
+                        "Record" -> navController.navigate("record_doctor_list")
                     }
                 }
             )
@@ -141,12 +144,11 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
             ) {
                 // Quick actions (placeholders)
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IconBubble(R.drawable.ic_notifications) { /* TODO: handle notification click */ }
                     IconBubble(R.drawable.ic_settings) {
                         // Navigate to settings screen
                         navController.navigate("settings")
                     }
-                    IconBubble(R.drawable.ic_search) { /* TODO: handle notification click */ }
+                    IconBubble(R.drawable.ic_notifications) { /* TODO: handle notification click */ }
                 }
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
@@ -206,7 +208,7 @@ private fun IconBubble(
 
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(40.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surface)
             .border(width = 1.dp, color = accent, shape = CircleShape)
@@ -216,7 +218,7 @@ private fun IconBubble(
         Image(
             painter = painterResource(id = iconRes),
             contentDescription = null,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(22.dp)
         )
     }
 }
@@ -274,7 +276,7 @@ private fun CategoryChip(
             painter = painterResource(id = cat.iconRes),
             contentDescription = cat.label,
             modifier = Modifier
-                .size(52.dp) // consistent icon size
+                .size(if (cat.label == "Doctors") 48.dp else if (cat.label == "Favourite") 60.dp else if (cat.label == "Specialties") 66.dp else 58.dp)
                 .padding(top = 4.dp),
             contentScale = ContentScale.Fit
         )
@@ -637,6 +639,187 @@ private fun SpecCard(spec: Spec, onClick: (Spec) -> Unit = {}) {
     }
 }
 
+
+/* ---------------------- Record: Doctor Selection ------------------- */
+
+data class DoctorRecordEntry(
+    val key: String,              // doctorId if available, otherwise doctorName
+    val doctorName: String,
+    val speciality: String,
+    val nextAppointmentDate: LocalDate
+)
+
+@Composable
+fun PatientRecordDoctorListScreen(
+    navController: NavController,
+    context: Context = LocalContext.current
+) {
+    // Load all stored appointments
+    val allAppointments = remember { AppointmentStorage.getAppointments(context) }
+    val today = remember { LocalDate.now() }
+    val locale = remember { Locale.getDefault() }
+
+    // Build list of unique doctors with at-least-one future (or today) appointment
+    val doctorEntries = remember(allAppointments) {
+        // Filter to appointments that are today or in the future
+        val upcoming = allAppointments.filter { appt ->
+            parseAppointmentDate(appt.date, locale)?.let { it >= today } ?: false
+        }
+
+        // Group by doctor name (no Kotlin reflection)
+        val grouped = upcoming.groupBy { appt -> appt.doctorName }
+
+        grouped.mapNotNull { (key, list) ->
+            if (list.isEmpty()) return@mapNotNull null
+            val first = list.first()
+            // Find the earliest upcoming date for this doctor
+            val earliestDate = list.mapNotNull { appt ->
+                parseAppointmentDate(appt.date, locale)
+            }.minOrNull() ?: today
+
+            DoctorRecordEntry(
+                key = key,
+                doctorName = first.doctorName,
+                speciality = first.speciality,
+                nextAppointmentDate = earliestDate
+            )
+        }.sortedBy { it.nextAppointmentDate }
+    }
+
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+    Scaffold(
+        topBar = {
+            Surface(
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = statusBarPadding + 8.dp,   // pushes it down below status bar
+                            bottom = 12.dp
+                        ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF4CB7C2)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Select Doctor",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFF4CB7C2)
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        if (doctorEntries.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No upcoming appointments.",
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(doctorEntries.size) { index ->
+                    val entry = doctorEntries[index]
+                    DoctorRecordCard(
+                        entry = entry,
+                        onClick = {
+                            // Pass the chosen doctor key forward so records can be scoped per doctor
+                            navController.navigate("patient_record_options/${entry.key}")
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DoctorRecordCard(
+    entry: DoctorRecordEntry,
+    onClick: () -> Unit
+) {
+    val accent = Color(0xFF4CB7C2)
+    val locale = Locale.getDefault()
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale) }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .border(width = 1.dp, color = accent, shape = RoundedCornerShape(20.dp))
+            .clickable { onClick() },
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = entry.doctorName,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = entry.speciality,
+                style = MaterialTheme.typography.bodyMedium,
+                color = accent
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Next appointment: ${entry.nextAppointmentDate.format(dateFormatter)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
+
+/**
+ * Helper to parse an appointment date string like "Monday, 24 Nov 2025" into a LocalDate.
+ * Returns null if parsing fails.
+ */
+private fun parseAppointmentDate(raw: String, locale: Locale): LocalDate? {
+    // Primary expected format
+    val patterns = listOf(
+        "EEEE, dd MMM yyyy",
+        "EEE, dd MMM yyyy"
+    )
+    for (pattern in patterns) {
+        try {
+            val formatter = DateTimeFormatter.ofPattern(pattern, locale)
+            return LocalDate.parse(raw, formatter)
+        } catch (_: Exception) {
+        }
+    }
+    return null
+}
+
 /* --------------------------- Bottom Bar ---------------------------- */
 
 @Composable
@@ -737,7 +920,7 @@ private fun BottomItem(
         Image(
             painter = painterResource(id = iconRes),
             contentDescription = label,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(30.dp)
         )
         Spacer(Modifier.height(2.dp))
         Text(

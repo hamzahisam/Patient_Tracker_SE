@@ -47,7 +47,7 @@ private val DarkColorScheme = darkColorScheme(
 
 // Theme state management
 data class AppThemeState(
-    val isDarkMode: Boolean = false,
+    val isDarkMode: Boolean = true,
     val toggleTheme: () -> Unit = {}
 )
 
@@ -61,7 +61,7 @@ fun PatientTrackerTheme(
     val context = LocalContext.current.applicationContext
 
     var isDarkMode by rememberSaveable {
-        mutableStateOf(ThemeManager.isDarkModeEnabled(context))
+        mutableStateOf(true)   // Force dark mode default
     }
 
     val themeState = remember(isDarkMode) {

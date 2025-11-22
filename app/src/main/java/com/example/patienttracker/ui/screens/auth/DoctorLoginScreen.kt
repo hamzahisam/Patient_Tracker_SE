@@ -30,6 +30,9 @@ fun DoctorLoginScreen(
     navController: NavController,
     context: Context
 ) {
+    val accentBlue = Color(0xFF4CB7C2)
+    val boxBackground = Color(0xFF11151A)
+
     var doctorId by remember { mutableStateOf("") }   // humanId like 000001
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
@@ -51,7 +54,7 @@ fun DoctorLoginScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFE0F7FA)),
+                .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -59,12 +62,12 @@ fun DoctorLoginScreen(
                     text = "Welcome Dr. $doctorName",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF00796B)
+                    color = accentBlue
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = "DoctorID# $doctorIdDisplay",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                     fontSize = 16.sp
                 )
             }
@@ -74,7 +77,7 @@ fun DoctorLoginScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFF7FBFB)
+        color = MaterialTheme.colorScheme.background
     ) {
         Box(Modifier.fillMaxSize()) {
             Column(
@@ -88,7 +91,7 @@ fun DoctorLoginScreen(
                     text = "Doctor Login",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF005F73)
+                    color = accentBlue
                 )
 
                 Spacer(Modifier.height(32.dp))
@@ -98,7 +101,25 @@ fun DoctorLoginScreen(
                     onValueChange = { doctorId = it },
                     label = { Text("Doctor ID") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = boxBackground,
+                        unfocusedContainerColor = boxBackground,
+                        disabledContainerColor = boxBackground,
+                        errorContainerColor = boxBackground,
+
+                        focusedIndicatorColor = accentBlue,
+                        unfocusedIndicatorColor = accentBlue.copy(alpha = 0.6f),
+                        disabledIndicatorColor = accentBlue.copy(alpha = 0.3f),
+                        errorIndicatorColor = Color.Red,
+
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+
+                        cursorColor = accentBlue,
+                        focusedLabelColor = accentBlue,
+                        unfocusedLabelColor = Color(0xFF9CA3AF)
+                    )
                 )
 
                 Spacer(Modifier.height(16.dp))
@@ -109,7 +130,25 @@ fun DoctorLoginScreen(
                     label = { Text("Password") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = boxBackground,
+                        unfocusedContainerColor = boxBackground,
+                        disabledContainerColor = boxBackground,
+                        errorContainerColor = boxBackground,
+
+                        focusedIndicatorColor = accentBlue,
+                        unfocusedIndicatorColor = accentBlue.copy(alpha = 0.6f),
+                        disabledIndicatorColor = accentBlue.copy(alpha = 0.3f),
+                        errorIndicatorColor = Color.Red,
+
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+
+                        cursorColor = accentBlue,
+                        focusedLabelColor = accentBlue,
+                        unfocusedLabelColor = Color(0xFF9CA3AF)
+                    )
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -159,7 +198,10 @@ fun DoctorLoginScreen(
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A9396)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = accentBlue,
+                        contentColor = Color.White
+                    ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -173,7 +215,7 @@ fun DoctorLoginScreen(
 
                 Text(
                     text = "Forgot ID / Password?",
-                    color = Color(0xFF0077B6),
+                    color = accentBlue,
                     fontSize = 14.sp,
                     modifier = Modifier.clickable {
                         Toast.makeText(context, "Please contact admin.", Toast.LENGTH_SHORT).show()
@@ -187,7 +229,7 @@ fun DoctorLoginScreen(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(44.dp),
-                    color = Color(0xFF0A9396)
+                    color = accentBlue
                 )
             }
         }

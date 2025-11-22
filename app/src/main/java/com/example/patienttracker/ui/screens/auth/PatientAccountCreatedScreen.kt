@@ -2,6 +2,9 @@ package com.example.patienttracker.ui.screens.auth
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -14,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +31,8 @@ fun PatientAccountCreatedScreen(
     navController: NavController,
     patientId: String
 ) {
+    val accentBlue = Color(0xFF4CB7C2)
+    val boxBackground = Color(0xFF11151A)
     val clipboardManager = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
 
@@ -44,7 +50,7 @@ fun PatientAccountCreatedScreen(
             Text(
                 text = "Account Created Successfully!",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
+                color = accentBlue
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -52,39 +58,50 @@ fun PatientAccountCreatedScreen(
             Text(
                 text = "Your Patient ID:",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .background(boxBackground, RoundedCornerShape(20.dp))
+                    .border(2.dp, accentBlue, RoundedCornerShape(20.dp))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = patientId,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = {
-                    clipboardManager.setText(AnnotatedString(patientId))
-                    copied = true
-                }) {
-                    Icon(
-                        imageVector = Icons.Filled.ContentCopy,
-                        contentDescription = "Copy ID"
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = patientId,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = accentBlue,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = {
+                        clipboardManager.setText(AnnotatedString(patientId))
+                        copied = true
+                    }) {
+                        Icon(
+                            imageVector = Icons.Filled.ContentCopy,
+                            contentDescription = "Copy ID",
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                        )
+                    }
                 }
             }
 
             if (copied) {
                 Text(
                     text = "Copied!",
-                    color = MaterialTheme.colorScheme.secondary,
+                    color = accentBlue,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(top = 4.dp)
                 )
@@ -102,7 +119,11 @@ fun PatientAccountCreatedScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accentBlue,
+                    contentColor = Color.White
+                )
             ) {
                 Text("Go to Login", fontSize = 18.sp)
             }

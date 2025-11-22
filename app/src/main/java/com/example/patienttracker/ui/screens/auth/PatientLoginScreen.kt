@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,7 +37,7 @@ fun PatientLoginScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFF9FEFF)
+        color = MaterialTheme.colorScheme.background
     ) {
         Box(Modifier.fillMaxSize()) {
             Column(
@@ -50,7 +51,7 @@ fun PatientLoginScreen(
                     text = "Patient Login",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0EA5B8)
+                    color = Color(0xFF4CB7C2)
                 )
 
                 Spacer(Modifier.height(32.dp))
@@ -60,7 +61,23 @@ fun PatientLoginScreen(
                     onValueChange = { idOrEmail = it },
                     label = { Text("Patient ID or Email") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFF11151A),
+                        unfocusedContainerColor = Color(0xFF11151A),
+                        disabledContainerColor = Color(0xFF11151A),
+                        errorContainerColor = Color(0xFF11151A),
+
+                        focusedIndicatorColor = Color(0xFF4CB7C2),
+                        unfocusedIndicatorColor = Color(0xFF4CB7C2).copy(alpha = 0.5f),
+                        cursorColor = Color(0xFF4CB7C2),
+
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+
+                        focusedLabelColor = Color(0xFF4CB7C2),
+                        unfocusedLabelColor = Color(0xFF9CA3AF)
+                    )
                 )
 
                 Spacer(Modifier.height(16.dp))
@@ -71,7 +88,23 @@ fun PatientLoginScreen(
                     label = { Text("Password") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFF11151A),
+                        unfocusedContainerColor = Color(0xFF11151A),
+                        disabledContainerColor = Color(0xFF11151A),
+                        errorContainerColor = Color(0xFF11151A),
+
+                        focusedIndicatorColor = Color(0xFF4CB7C2),
+                        unfocusedIndicatorColor = Color(0xFF4CB7C2).copy(alpha = 0.5f),
+                        cursorColor = Color(0xFF4CB7C2),
+
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+
+                        focusedLabelColor = Color(0xFF4CB7C2),
+                        unfocusedLabelColor = Color(0xFF9CA3AF)
+                    )
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -153,7 +186,7 @@ fun PatientLoginScreen(
 
                 Text(
                     text = "Forgot ID / Password?",
-                    color = Color(0xFF0077B6),
+                    color = Color(0xFF4CB7C2),
                     fontSize = 14.sp,
                     modifier = Modifier.clickable { onForgotPassword() },
                     textAlign = TextAlign.Center

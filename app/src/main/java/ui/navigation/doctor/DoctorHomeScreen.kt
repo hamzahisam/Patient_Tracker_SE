@@ -184,7 +184,6 @@ private fun DoctorHeader(
             ) {
                 IconBubble(iconRes = R.drawable.ic_notifications, onClick = onBell)
                 IconBubble(iconRes = R.drawable.ic_settings, onClick = onSettings)
-                IconBubble(iconRes = R.drawable.ic_search, onClick = onSearch)
             }
 
             Spacer(Modifier.weight(1f))
@@ -206,7 +205,7 @@ private fun DoctorHeader(
             Spacer(Modifier.width(12.dp))
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(50.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable { onProfile() },
