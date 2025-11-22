@@ -4,18 +4,23 @@ import android.content.Context
 import android.os.Parcelable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -43,10 +48,12 @@ fun DoctorListScreen(
     context: Context,
     specialityFilter: String?
 ) {
+    val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
 
     val db = Firebase.firestore
     var doctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var searchQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(specialityFilter) {
         loading = true
@@ -110,85 +117,200 @@ fun DoctorListScreen(
             }
     }
 
-    val filtered =
-        if (specialityFilter.isNullOrBlank() || specialityFilter == "All") {
-            doctors
-        } else {
-            doctors.filter { it.speciality.contains(specialityFilter, ignoreCase = true) }
+    // Apply both specialty filter and search filter
+    val filtered = remember(doctors, specialityFilter, searchQuery) {
+        var result = doctors
+
+        // First apply specialty filter
+        if (!specialityFilter.isNullOrBlank() && specialityFilter != "All") {
+            result = result.filter { it.speciality.contains(specialityFilter, ignoreCase = true) }
         }
+
+        // Then apply search filter
+        if (searchQuery.isNotBlank()) {
+            result = result.filter { doctor ->
+                val fullName = "Dr. ${doctor.firstName} ${doctor.lastName}"
+                fullName.contains(searchQuery, ignoreCase = true) ||
+//                        doctor.speciality.contains(searchQuery, ignoreCase = true) ||
+                        doctor.firstName.contains(searchQuery, ignoreCase = true) ||
+                        doctor.lastName.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
+        result
+    }
 
     Scaffold(
         topBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.background,
-                tonalElevation = 0.dp
-            ) {
-                Row(
+            Surface(color = Color.Transparent, tonalElevation = 0.dp) {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.statusBars)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .background(gradient)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
+                    // Back Button
                     BackButton(
                         navController = navController,
-                        modifier = Modifier
+                        modifier = Modifier.align(Alignment.CenterStart)
                     )
 
-                    Spacer(modifier = Modifier.width(16.dp))
-
+                    // Title
                     Text(
                         text = specialityFilter?.ifBlank { "All Doctors" } ?: "All Doctors",
-                        color = Color(0xFF4CB7C2),
+                        color = Color.White,
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
-                        )
+                        ),
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
         },
         bottomBar = { PatientBottomBar(navController) }
     ) { inner ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
-                .background(MaterialTheme.colorScheme.background),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(16.dp)
+                .background(Color(0xFFF6F8FC))
         ) {
-            if (loading) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 40.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            } else if (filtered.isEmpty()) {
-                item {
-                    Text(
-                        "No doctors available",
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            } else {
-                items(filtered) { doc ->
-                    DoctorCard(doc) {
-                        navController.currentBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("selectedDoctor", doc)
+            // Search Bar
+            SearchBar(
+                searchQuery = searchQuery,
+                onSearchQueryChanged = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            )
 
-                        navController.navigate("book_appointment")
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFF6F8FC)),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                if (loading) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (filtered.isEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                if (searchQuery.isNotBlank()) {
+                                    "No doctors found for \"$searchQuery\""
+                                } else {
+                                    "No doctors available"
+                                },
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color(0xFF6AA8B0),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (searchQuery.isNotBlank()) {
+                                Text(
+                                    "Try searching with different keywords",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF8DC2C8),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(filtered) { doc ->
+                        DoctorCard(doc) {
+                            navController.currentBackStackEntry
+                                ?.savedStateHandle
+                                ?.set("selectedDoctor", doc)
+
+                            navController.navigate("book_appointment")
+                        }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun SearchBar(
+    searchQuery: String,
+    onSearchQueryChanged: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    OutlinedTextField(
+        value = searchQuery,
+        onValueChange = onSearchQueryChanged,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        placeholder = {
+            Text(
+                "Search doctors by name... ",
+                color = Color(0xFF8DC2C8)
+            )
+        },
+        leadingIcon = {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = "Search",
+                tint = Color(0xFF4CB7C2)
+            )
+        },
+        trailingIcon = {
+            if (searchQuery.isNotBlank()) {
+                IconButton(
+                    onClick = {
+                        onSearchQueryChanged("")
+                        keyboardController?.hide()
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.Clear,
+                        contentDescription = "Clear search",
+                        tint = Color(0xFF4CB7C2)
+                    )
+                }
+            }
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(
+            onSearch = {
+                keyboardController?.hide()
+            }
+        ),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+            disabledContainerColor = Color.White,
+            focusedIndicatorColor = Color(0xFF4CB7C2),
+            unfocusedIndicatorColor = Color(0xFFB9E3E7),
+            focusedTextColor = Color(0xFF1C3D5A),
+            unfocusedTextColor = Color(0xFF1C3D5A)
+        ),
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
 @Composable
@@ -199,14 +321,14 @@ fun DoctorCard(
     Surface(
         shape = RoundedCornerShape(20.dp),
         tonalElevation = 2.dp,
-        color = MaterialTheme.colorScheme.surface,
+        color = Color.White,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
                 text = "Dr. ${doctor.firstName} ${doctor.lastName}",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
+                color = Color(0xFF1C3D5A)
             )
             Text(
                 text = doctor.speciality,
@@ -215,16 +337,10 @@ fun DoctorCard(
             )
             Spacer(Modifier.height(4.dp))
             if (doctor.days.isNotBlank()) {
-                Text(
-                    text = "Days: ${doctor.days}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Days: ${doctor.days}", color = Color(0xFF2A6C74))
             }
             if (doctor.timings.isNotBlank()) {
-                Text(
-                    text = "Timings: ${doctor.timings}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Timings: ${doctor.timings}", color = Color(0xFF2A6C74))
             }
             Spacer(Modifier.height(12.dp))
             Button(
