@@ -55,7 +55,7 @@ val LocalAppTheme = staticCompositionLocalOf { AppThemeState() }
 
 @Composable
 fun PatientTrackerTheme(
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
