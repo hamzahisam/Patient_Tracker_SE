@@ -143,26 +143,24 @@ fun DoctorListScreen(
     Scaffold(
         topBar = {
             Surface(color = Color.Transparent, tonalElevation = 0.dp) {
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(gradient)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(start = 8.dp, top = 28.dp, bottom = 12.dp), // lowers position
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Back Button
                     BackButton(
                         navController = navController,
-                        modifier = Modifier.align(Alignment.CenterStart)
+                        modifier = Modifier.padding(end = 8.dp)
                     )
 
-                    // Title
                     Text(
                         text = specialityFilter?.ifBlank { "All Doctors" } ?: "All Doctors",
-                        color = Color.White,
+                        color = Color(0xFF4CB7C2),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.align(Alignment.Center)
+                        )
                     )
                 }
             }
@@ -321,14 +319,16 @@ fun DoctorCard(
     Surface(
         shape = RoundedCornerShape(20.dp),
         tonalElevation = 2.dp,
-        color = Color.White,
-        modifier = Modifier.fillMaxWidth()
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
                 text = "Dr. ${doctor.firstName} ${doctor.lastName}",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF1C3D5A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = doctor.speciality,
@@ -337,10 +337,16 @@ fun DoctorCard(
             )
             Spacer(Modifier.height(4.dp))
             if (doctor.days.isNotBlank()) {
-                Text("Days: ${doctor.days}", color = Color(0xFF2A6C74))
+                Text(
+                    "Days: ${doctor.days}",
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                )
             }
             if (doctor.timings.isNotBlank()) {
-                Text("Timings: ${doctor.timings}", color = Color(0xFF2A6C74))
+                Text(
+                    "Timings: ${doctor.timings}",
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                )
             }
             Spacer(Modifier.height(12.dp))
             Button(
