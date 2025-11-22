@@ -16,6 +16,9 @@ import androidx.navigation.NavController
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.example.patienttracker.ui.screens.patient.PatientBottomBar
+import androidx.compose.runtime.LaunchedEffect
+import com.example.patienttracker.auth.AuthManager
+import com.example.patienttracker.auth.UserProfile
 
 @Composable
 fun PatientProfileScreen(
@@ -23,8 +26,14 @@ fun PatientProfileScreen(
     firstName: String?,
     lastName: String?
 ) {
-    val safeFirstName = firstName ?: "Patient"
-    val safeLastName = lastName ?: ""
+    var userProfile by remember { mutableStateOf<UserProfile?>(null) }
+
+    LaunchedEffect(Unit) {
+        userProfile = AuthManager.getCurrentUserProfile()
+    }
+
+    val safeFirstName = userProfile?.firstName ?: firstName ?: "User"
+    val safeLastName = userProfile?.lastName ?: lastName ?: ""
 
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -120,15 +129,31 @@ fun PatientProfileScreen(
 
                         Column {
                             Text(
-                                text = "$safeFirstName $safeLastName", // Use safe variables here
+                                text = "$safeFirstName $safeLastName".trim(),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF1C3D5A)
                             )
+
+                            // Read the role exactly as stored in Firestore
+                            val rawRole = userProfile?.role ?: ""
+
+                            // TEMP: debug
                             Text(
-                                text = "Patient",
+                                text = "DEBUG role = '$rawRole'",
+                                fontSize = 12.sp,
+                                color = Color.Red
+                            )
+
+                            Text(
+                                text = when {
+                                    rawRole.equals("doctor", ignoreCase = true) -> "Doctor"
+                                    rawRole.equals("patient", ignoreCase = true) -> "Patient"
+                                    rawRole.isNotBlank() -> rawRole
+                                    else -> ""
+                                },
                                 fontSize = 14.sp,
-                                color = Color(0xFF6AA8B0)
+                                color = Color(0xFF0EA5B8)
                             )
                         }
                     }

@@ -48,6 +48,8 @@ import com.example.patienttracker.R
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import com.example.patienttracker.auth.AuthManager
+import com.example.patienttracker.auth.UserProfile
+import androidx.compose.runtime.produceState
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -55,6 +57,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import java.time.format.DateTimeFormatter
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import kotlin.text.format
 
 // ---------- Public entry ----------
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,18 +70,28 @@ fun DoctorHomeScreen(
     doctorId: String? = null,
     specialty: String? = null
 ) {
-    // Resolve name/ID from explicit params, then savedStateHandle, then route args, else fallback
-    val resolvedFirst = firstName
+    // Load current user profile once; prefer this over nav args so Home works even when
+    // navigated to from the bottom bar.
+    val profileState = produceState<UserProfile?>(initialValue = null) {
+        value = AuthManager.getCurrentUserProfile()
+    }
+    val profile = profileState.value
+
+    // Resolve name/ID from profile first, then explicit params, then savedStateHandle / route args, else fallback
+    val resolvedFirst = profile?.firstName
+        ?: firstName
         ?: navController.previousBackStackEntry?.savedStateHandle?.get<String>("firstName")
         ?: navController.currentBackStackEntry?.arguments?.getString("firstName")
         ?: "Doctor"
 
-    val resolvedLast = lastName
+    val resolvedLast = profile?.lastName
+        ?: lastName
         ?: navController.previousBackStackEntry?.savedStateHandle?.get<String>("lastName")
         ?: navController.currentBackStackEntry?.arguments?.getString("lastName")
         ?: ""
 
-    val resolvedId = doctorId
+    val resolvedId = profile?.humanId
+        ?: doctorId
         ?: navController.previousBackStackEntry?.savedStateHandle?.get<String>("doctorId")
         ?: navController.currentBackStackEntry?.arguments?.getString("doctorId")
         ?: ""
@@ -115,7 +128,9 @@ fun DoctorHomeScreen(
                 name = "Dr. $resolvedFirst",
                 initials = initials,
                 onBell = { /* TODO: open notifications */ },
-                onSettings = { /* TODO: open settings */ },
+                onSettings = {
+                    navController.navigate("doctor_settings")
+                },
                 onSearch = { /* TODO: open search */ },
                 onProfile = {
                     navController.currentBackStackEntry?.savedStateHandle?.apply {
@@ -184,7 +199,7 @@ private fun DoctorHeader(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     name,
-                    color = Color.White,
+                    color = Color(0xFF4CB7C2),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
             }
@@ -612,10 +627,8 @@ fun DoctorBottomBar(
                     label = "Schedule",
                     selected = selectedTab == 3,
                     onClick = {
-                        // if you later add a dedicated schedule screen, navigate there
-                        // for now we can treat Home as schedule as well:
                         if (selectedTab != 3) {
-                            navController.navigate("doctor_home") {
+                            navController.navigate("doctor_schedule") {
                                 launchSingleTop = true
                                 popUpTo("doctor_home") { inclusive = false }
                             }

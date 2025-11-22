@@ -32,9 +32,9 @@ import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorProfileScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientsScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorScheduleScreen
 import com.example.patienttracker.ui.screens.patient.ChatSelectionScreen
 import com.example.patienttracker.ui.screens.patient.ChatScreen
-// import com.example.patienttracker.ui.screens.patient.PatientRecordOptionsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorChatInboxScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorChatScreen
 import ui.screens.patient.PatientRecordOptionsScreen
@@ -46,7 +46,8 @@ import com.example.patienttracker.ui.screens.doctor.DoctorPatientReportsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientPrescriptionsScreen
 import com.example.patienttracker.ui.screens.patient.EnhancedProfileScreen
 import com.example.patienttracker.ui.screens.patient.SettingsScreen
-import ui.screens.doctor.DoctorEnhancedProfileScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorSettingsScreen
+
 
 object Route {
     const val SPLASH = "splash"
@@ -380,6 +381,11 @@ fun AppNavHost(context: Context) {
 
         composable(Route.ADMIN_HOME) { AdminHomeScreen(navController, context) }
 
+        // Doctor full schedule view (bottom bar "Schedule" tab)
+        composable("doctor_schedule") {
+            DoctorScheduleScreen(navController)
+        }
+
         // Doctor Patients screen
         composable("doctor_patients") {
             DoctorPatientsScreen(navController)
@@ -433,8 +439,12 @@ fun AppNavHost(context: Context) {
             )
         }
 
+        composable("doctor_settings") {
+            DoctorSettingsScreen(navController)
+        }
+
         composable("doctor_profile") {
-            DoctorEnhancedProfileScreen(navController)
+            EnhancedProfileScreen(navController)
         }
     }
 }

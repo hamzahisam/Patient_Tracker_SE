@@ -41,6 +41,7 @@ fun EnhancedProfileScreen(navController: NavController) {
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var role by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val profile = AuthManager.getCurrentUserProfile()
@@ -48,6 +49,7 @@ fun EnhancedProfileScreen(navController: NavController) {
         lastName = profile?.lastName ?: ""
         email = Firebase.auth.currentUser?.email ?: ""
         phone = profile?.phoneNumber ?: ""
+        role = profile?.role ?: ""
     }
 
     // Logout dialog
@@ -184,11 +186,20 @@ fun EnhancedProfileScreen(navController: NavController) {
                         color = accent
                     )
 
-                    Text(
-                        text = "Patient",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
+                    val roleLabel = when {
+                        role.equals("doctor", ignoreCase = true) -> "Doctor"
+                        role.equals("patient", ignoreCase = true) -> "Patient"
+                        role.isNotBlank() -> role.replaceFirstChar { it.titlecase() }
+                        else -> ""
+                    }
+
+                    if (roleLabel.isNotEmpty()) {
+                        Text(
+                            text = roleLabel,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
                 }
 
                 // Personal Information Card
