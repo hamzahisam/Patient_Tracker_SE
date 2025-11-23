@@ -236,7 +236,46 @@ fun DoctorLoginScreen(
                     color = accentBlue,
                     fontSize = 14.sp,
                     modifier = Modifier.clickable {
-                        Toast.makeText(context, "Please contact admin.", Toast.LENGTH_SHORT).show()
+                        scope.launch {
+                            if (doctorId.isBlank()) {
+                                Toast.makeText(
+                                    context,
+                                    "Please enter your Doctor ID or Email first",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                return@launch
+                            }
+
+                            isLoading = true
+                            try {
+                                val emailToUse = if (doctorId.contains("@")) {
+                                    doctorId.trim()
+                                } else {
+                                    // Treat as Doctor ID (humanId) and resolve to email via Firestore
+                                    val profile = findDoctorByHumanId(doctorId.trim())
+                                        ?: throw IllegalArgumentException("No doctor with this ID")
+                                    profile.email
+                                }
+
+                                Firebase.auth
+                                    .sendPasswordResetEmail(emailToUse)
+                                    .await()
+
+                                Toast.makeText(
+                                    context,
+                                    "Password reset email sent to $emailToUse",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    e.message ?: "Could not send reset email",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } finally {
+                                isLoading = false
+                            }
+                        }
                     },
                     textAlign = TextAlign.Center
                 )

@@ -201,7 +201,51 @@ fun PatientLoginScreen(
                     text = "Forgot ID / Password?",
                     color = Color(0xFF4CB7C2),
                     fontSize = 14.sp,
-                    modifier = Modifier.clickable { onForgotPassword() },
+                    modifier = Modifier.clickable {
+                        scope.launch {
+                            if (idOrEmail.isBlank()) {
+                                Toast.makeText(
+                                    context,
+                                    "Please enter your Patient ID or Email first",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                return@launch
+                            }
+
+                            isLoading = true
+                            try {
+                                // 1) Resolve email from either email or humanId
+                                val emailToUse = if (idOrEmail.contains("@")) {
+                                    idOrEmail.trim()
+                                } else {
+                                    // Treat as Patient ID (humanId), reuse your helper
+                                    val user = findPatientByHumanId(idOrEmail.trim())
+                                        ?: throw IllegalArgumentException("No patient with this ID")
+
+                                    user.email
+                                }
+
+                                // 2) Ask Firebase to send reset email
+                                Firebase.auth
+                                    .sendPasswordResetEmail(emailToUse)
+                                    .await()
+
+                                Toast.makeText(
+                                    context,
+                                    "Password reset email sent to $emailToUse",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    e.message ?: "Could not send reset email",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } finally {
+                                isLoading = false
+                            }
+                        }
+                    },
                     textAlign = TextAlign.Center
                 )
             }
