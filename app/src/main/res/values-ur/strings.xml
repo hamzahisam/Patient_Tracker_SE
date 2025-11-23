@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common -->
+    <string name="app_name">مریض ٹریکر</string>
+    <string name="settings">ترتیبات</string>
+    <string name="back">پیچھے</string>
+    
+    <!-- Settings -->
+    <string name="account_settings">اکاؤنٹ کی ترتیبات</string>
+    <string name="manage_profile">اپنی پروفائل کی معلومات کو منظم کریں</string>
+    <string name="theme">تھیم</string>
+    <string name="dark_mode">ڈارک موڈ</string>
+    <string name="light_mode">لائٹ موڈ</string>
+    <string name="language">زبان</string>
+    <string name="select_language">زبان منتخب کریں</string>
+    <string name="confirm">تصدیق کریں</string>
+    <string name="cancel">منسوخ کریں</string>
+    
+    <!-- Languages -->
+    <string name="english">انگریزی</string>
+    <string name="urdu">اردو</string>
+</resources>

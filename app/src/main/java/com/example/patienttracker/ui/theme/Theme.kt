@@ -60,8 +60,9 @@ fun PatientTrackerTheme(
 ) {
     val context = LocalContext.current.applicationContext
 
+    // FIX: Read from shared preferences instead of hardcoding
     var isDarkMode by rememberSaveable {
-        mutableStateOf(true)   // Force dark mode default
+        mutableStateOf(ThemeManager.isDarkModeEnabled(context))
     }
 
     val themeState = remember(isDarkMode) {

@@ -49,6 +49,7 @@ import com.example.patienttracker.ui.screens.patient.SettingsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorSettingsScreen
 import com.example.patienttracker.ui.screens.patient.PatientRecordDoctorListScreen
 import com.example.patienttracker.ui.screens.patient.SpecialtiesScreen
+import com.example.patienttracker.ui.screens.patient.FavoritesScreen
 
 
 object Route {
@@ -270,6 +271,10 @@ fun AppNavHost(context: Context) {
                 navController = navController,
                 doctorKey = doctorKey
             )
+        }
+
+        composable("favorites_screen") {
+            FavoritesScreen(navController)
         }
 
         composable(

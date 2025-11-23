@@ -57,6 +57,7 @@ import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalContext
 import com.example.patienttracker.auth.AuthManager
 import androidx.compose.foundation.layout.statusBars
+import com.example.patienttracker.ui.screens.patient.FavoritesScreen
 
 
 @Composable
@@ -102,6 +103,7 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
                 ),
                 onCategoryClick = { category ->
                     when (category.label) {
+                        "Favorite" -> navController.navigate("favorites_screen") // ADD THIS LINE
                         "Doctors" -> navController.navigate("doctor_list/All")
                         "Specialties" -> navController.navigate("patient_specialties")
                         "Record" -> navController.navigate("record_doctor_list")

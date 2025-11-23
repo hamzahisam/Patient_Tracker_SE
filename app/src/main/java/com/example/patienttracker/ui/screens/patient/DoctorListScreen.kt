@@ -29,6 +29,13 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.example.patienttracker.ui.screens.common.BackButton
 import kotlinx.parcelize.Parcelize
+import com.example.patienttracker.data.FavoritesManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.res.painterResource
+import com.example.patienttracker.R
 
 @Parcelize
 data class DoctorFull(
@@ -316,6 +323,10 @@ fun DoctorCard(
     doctor: DoctorFull,
     onBookClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isFavorited by remember { mutableStateOf(FavoritesManager.isFavorite(context, doctor.id)) }
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         tonalElevation = 2.dp,
@@ -325,29 +336,64 @@ fun DoctorCard(
             .background(MaterialTheme.colorScheme.background)
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(
-                text = "Dr. ${doctor.firstName} ${doctor.lastName}",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = doctor.speciality,
-                color = Color(0xFF4CB7C2),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Spacer(Modifier.height(4.dp))
-            if (doctor.days.isNotBlank()) {
-                Text(
-                    "Days: ${doctor.days}",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                )
+            // Add favorite icon row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Dr. ${doctor.firstName} ${doctor.lastName}",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = doctor.speciality,
+                        color = Color(0xFF4CB7C2),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    if (doctor.days.isNotBlank()) {
+                        Text(
+                            "Days: ${doctor.days}",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                    }
+                    if (doctor.timings.isNotBlank()) {
+                        Text(
+                            "Timings: ${doctor.timings}",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+                
+                // Heart icon for favorites
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            if (isFavorited) {
+                                FavoritesManager.removeFavorite(context, doctor.id)
+                            } else {
+                                FavoritesManager.addFavorite(context, doctor.id)
+                            }
+                            isFavorited = !isFavorited
+                        }
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (isFavorited) R.drawable.ic_favourite_filled 
+                                 else R.drawable.ic_favourite_outline
+                        ),
+                        contentDescription = if (isFavorited) "Remove from favorites" 
+                                           else "Add to favorites",
+                        tint = if (isFavorited) Color(0xFFFF6B6B) else Color(0xFF8DC2C8)
+                    )
+                }
             }
-            if (doctor.timings.isNotBlank()) {
-                Text(
-                    "Timings: ${doctor.timings}",
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                )
-            }
+            
             Spacer(Modifier.height(12.dp))
             Button(
                 onClick = onBookClick,

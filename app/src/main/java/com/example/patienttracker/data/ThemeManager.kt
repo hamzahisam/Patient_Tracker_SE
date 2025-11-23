@@ -9,7 +9,7 @@ object ThemeManager {
     
     fun isDarkModeEnabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getBoolean(KEY_IS_DARK_MODE, false)
+        return prefs.getBoolean(KEY_IS_DARK_MODE, true) // Default to dark mode (true)
     }
     
     fun setDarkModeEnabled(context: Context, enabled: Boolean) {
