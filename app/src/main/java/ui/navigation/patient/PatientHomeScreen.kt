@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
+import com.example.patienttracker.data.firebase.UserRepository
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,6 +58,7 @@ import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalContext
 import com.example.patienttracker.auth.AuthManager
 import androidx.compose.foundation.layout.statusBars
+import com.example.patienttracker.ui.screens.doctor.DoctorBottomBar
 import com.example.patienttracker.ui.screens.patient.FavoritesScreen
 
 
@@ -477,7 +479,10 @@ private fun ScheduleCard(
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(16.dp)
         ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     "Appointments for $displayDate",
                     color = Color(0xFF2A6C74),
@@ -488,41 +493,52 @@ private fun ScheduleCard(
                     "See all",
                     color = Color(0xFF4CB7C2),
                     style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.clickable { navController.navigate("full_schedule") }
+                    modifier = Modifier.clickable {
+                        navController.navigate("full_schedule")
+                    }
                 )
             }
 
             Spacer(Modifier.height(12.dp))
 
-            appointments.forEachIndexed { index, appointment ->
-                Column {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val primaryTextColor = MaterialTheme.colorScheme.onSurface
-                        val accentColor = Color(0xFF4CB7C2)
+            appointments.forEach { appointment ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val primaryTextColor = MaterialTheme.colorScheme.onSurface
+                    val accentColor = Color(0xFF4CB7C2)
 
-                        Text(
-                            text = appointment.timing,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = primaryTextColor
-                        )
+                    // Time
+                    Text(
+                        text = appointment.timing,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = primaryTextColor
+                    )
 
-                        Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(12.dp))
 
-                        Text(
-                            text = "${appointment.doctorFirstName + " " + appointment.doctorLastName} (${appointment.doctorSpeciality})",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = accentColor
-                        )
-                    }
+                    // Doctor + speciality
+                    val doctorName = listOf(
+                        appointment.doctorFirstName,
+                        appointment.doctorLastName
+                    ).filter { it.isNotBlank() }
+                        .joinToString(" ")
+                        .ifBlank { "Unknown doctor" }
+
+                    val speciality = appointment.doctorSpeciality.ifBlank { "Speciality not set" }
+
+                    Text(
+                        text = "$doctorName ($speciality)",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = accentColor
+                    )
                 }
             }
         }
@@ -655,7 +671,7 @@ data class DoctorRecordEntry(
     val key: String,              // doctorId if available, otherwise doctorName
     val doctorName: String,
     val speciality: String,
-    val nextAppointmentDate: LocalDate
+    val nextAppointmentLabel: String
 )
 
 @Composable
@@ -663,39 +679,104 @@ fun PatientRecordDoctorListScreen(
     navController: NavController,
     context: Context = LocalContext.current
 ) {
-    // Load all stored appointments
-    val allAppointments = remember { AppointmentStorage.getAppointments(context) }
-    val today = remember { LocalDate.now() }
     val locale = remember { Locale.getDefault() }
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-    // Build list of unique doctors with at-least-one future (or today) appointment
-    val doctorEntries = remember(allAppointments) {
-        // Filter to appointments that are today or in the future
-        val upcoming = allAppointments.filter { appt ->
-            parseAppointmentDate(appt.date, locale)?.let { it >= today } ?: false
+    var patientId by remember { mutableStateOf<String?>(null) }
+    var appointments by remember { mutableStateOf<List<Appointment>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Load patient id + appointments from Firestore
+    LaunchedEffect(Unit) {
+        try {
+            val profile = AuthManager.getCurrentUserProfile()
+            patientId = profile?.humanId?.takeIf { it.isNotBlank() }
+
+            patientId?.let { id ->
+                appointments = UserRepository.getAppointmentsForPatient(id)
+            }
+        } catch (_: Exception) {
+            // keep defaults on error
+        } finally {
+            isLoading = false
+        }
+    }
+
+    val today = remember { LocalDate.now() }
+
+    // Build list of doctors for this patient from Firestore appointments
+    val doctorEntries = remember(appointments, locale, patientId) {
+        // 1) filter to this patient + booked + upcoming
+        val relevant = appointments.filter { appt ->
+            val matchesPatient = patientId?.let { appt.patientId == it } ?: true
+            val isBooked = appt.status.equals("booked", ignoreCase = true)
+            val apptDate = parseAppointmentDate(appt.date, locale)
+            val isUpcoming = apptDate?.isAfter(today.minusDays(1)) ?: false
+
+            matchesPatient && isBooked && isUpcoming
         }
 
-        // Group by doctor name (no Kotlin reflection)
-        val grouped = upcoming.groupBy { appt -> appt.doctorFirstName + " " + appt.doctorLastName }
+        // 2) group by doctor
+        val grouped = relevant.groupBy { appt ->
+            if (appt.doctorId.isNotBlank()) {
+                appt.doctorId
+            } else {
+                listOf(appt.doctorFirstName, appt.doctorLastName)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ")
+                    .ifBlank { "unknown-doctor" }
+            }
+        }
 
+        // 3) map to DoctorRecordEntry
         grouped.mapNotNull { (key, list) ->
             if (list.isEmpty()) return@mapNotNull null
-            val first = list.first()
-            // Find the earliest upcoming date for this doctor
-            val earliestDate = list.mapNotNull { appt ->
-                parseAppointmentDate(appt.date, locale)
-            }.minOrNull() ?: today
+
+            val earliestAppt = list.minByOrNull { appt ->
+                parseAppointmentDate(appt.date, locale) ?: LocalDate.MAX
+            } ?: return@mapNotNull null
+
+            // If we genuinely have no doctor info, skip
+            if (
+                earliestAppt.doctorId.isBlank() &&
+                earliestAppt.doctorFirstName.isBlank() &&
+                earliestAppt.doctorLastName.isBlank()
+            ) return@mapNotNull null
+
+            val doctorName = listOf(
+                earliestAppt.doctorFirstName,
+                earliestAppt.doctorLastName
+            ).filter { it.isNotBlank() }
+                .joinToString(" ")
+                .ifBlank { "Unknown doctor" }
+
+            val displayDoctorName = "Dr. $doctorName".trim()
+
+            val displaySpeciality =
+                if (earliestAppt.doctorSpeciality.isNotBlank())
+                    earliestAppt.doctorSpeciality
+                else
+                    "Speciality not set"
+
+            val nextAppointmentLabel = buildString {
+                if (earliestAppt.date.isNotBlank()) append(earliestAppt.date)
+                if (earliestAppt.timing.isNotBlank()) {
+                    if (isNotEmpty()) append("  ")
+                    append(earliestAppt.timing)
+                }
+            }.ifBlank { "Not scheduled" }
 
             DoctorRecordEntry(
                 key = key,
-                doctorName = first.doctorFirstName + " " + first.doctorLastName,
-                speciality = first.doctorSpeciality,
-                nextAppointmentDate = earliestDate
+                doctorName = displayDoctorName,
+                speciality = displaySpeciality,
+                nextAppointmentLabel = nextAppointmentLabel
             )
-        }.sortedBy { it.nextAppointmentDate }
+        }.sortedBy { entry ->
+            val datePart = entry.nextAppointmentLabel.substringBefore("  ")
+            parseAppointmentDate(datePart, locale) ?: LocalDate.MAX
+        }
     }
-
-    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     Scaffold(
         topBar = {
@@ -710,7 +791,7 @@ fun PatientRecordDoctorListScreen(
                         .padding(
                             start = 16.dp,
                             end = 16.dp,
-                            top = statusBarPadding + 8.dp,   // pushes it down below status bar
+                            top = statusBarPadding + 8.dp,
                             bottom = 12.dp
                         ),
                     verticalAlignment = Alignment.CenterVertically
@@ -730,38 +811,55 @@ fun PatientRecordDoctorListScreen(
                     )
                 }
             }
+        },
+        bottomBar = {
+            PatientBottomBar(navController)
         }
     ) { innerPadding ->
-        if (doctorEntries.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No upcoming appointments.",
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF4CB7C2))
+                }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(doctorEntries.size) { index ->
-                    val entry = doctorEntries[index]
-                    DoctorRecordCard(
-                        entry = entry,
-                        onClick = {
-                            // Pass the chosen doctor key forward so records can be scoped per doctor
-                            navController.navigate("patient_record_options/${entry.key}")
-                        }
+
+            doctorEntries.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No upcoming appointments.",
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodyMedium
                     )
+                }
+            }
+
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(doctorEntries.size) { index ->
+                        val entry = doctorEntries[index]
+                        DoctorRecordCard(
+                            entry = entry,
+                            onClick = {
+                                navController.navigate("patient_record_options/${entry.key}")
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -774,8 +872,6 @@ private fun DoctorRecordCard(
     onClick: () -> Unit
 ) {
     val accent = Color(0xFF4CB7C2)
-    val locale = Locale.getDefault()
-    val dateFormatter = remember { DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale) }
 
     Surface(
         modifier = Modifier
@@ -801,7 +897,7 @@ private fun DoctorRecordCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Next appointment: ${entry.nextAppointmentDate.format(dateFormatter)}",
+                text = "Next appointment: ${entry.nextAppointmentLabel}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
@@ -814,18 +910,53 @@ private fun DoctorRecordCard(
  * Returns null if parsing fails.
  */
 private fun parseAppointmentDate(raw: String, locale: Locale): LocalDate? {
-    // Primary expected format
-    val patterns = listOf(
+    // Base string as-is
+    val base = raw.trim()
+
+    // Try first by stripping any trailing time / extra info, e.g. "at 10:30 AM", "|", "-", "@"
+    val cleaned = base
+        .substringBefore(" at")
+        .substringBefore(" @")
+        .substringBefore("|")
+        .substringBefore(" -")
+        .trim()
+
+    // 1) Try date-only patterns on the cleaned string
+    val dateOnlyPatterns = listOf(
         "EEEE, dd MMM yyyy",
-        "EEE, dd MMM yyyy"
+        "EEE, dd MMM yyyy",
+        "EEEE, dd MMMM yyyy",
+        "EEE, dd MMMM yyyy"
     )
-    for (pattern in patterns) {
+
+    for (pattern in dateOnlyPatterns) {
         try {
             val formatter = DateTimeFormatter.ofPattern(pattern, locale)
-            return LocalDate.parse(raw, formatter)
+            return LocalDate.parse(cleaned, formatter)
         } catch (_: Exception) {
+            // ignore and try next
         }
     }
+
+    // 2) Try full string with date+time patterns and then extract the LocalDate
+    val dateTimePatterns = listOf(
+        "EEEE, dd MMM yyyy 'at' hh:mm a",
+        "EEE, dd MMM yyyy 'at' hh:mm a",
+        "EEEE, dd MMM yyyy HH:mm",
+        "EEE, dd MMM yyyy HH:mm"
+    )
+
+    for (pattern in dateTimePatterns) {
+        try {
+            val formatter = DateTimeFormatter.ofPattern(pattern, locale)
+            val accessor = formatter.parse(base)
+            return LocalDate.from(accessor)
+        } catch (_: Exception) {
+            // ignore and try next
+        }
+    }
+
+    // If nothing matched, give up
     return null
 }
 
