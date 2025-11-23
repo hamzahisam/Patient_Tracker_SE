@@ -272,8 +272,16 @@ fun AppNavHost(context: Context) {
             )
         }
 
-        composable("patient_reports_screen") {
+        composable(
+            route = "patient_reports_screen/{doctorKey}",
+            arguments = listOf(
+                navArgument("doctorKey") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val doctorKey = backStackEntry.arguments?.getString("doctorKey").orEmpty()
+
             // Patient viewing their own REPORTS (can upload)
+            // doctorKey is available if you want to filter by doctor in the screen
             PatientReportsScreen(
                 navController = navController,
                 context = context,
@@ -283,8 +291,16 @@ fun AppNavHost(context: Context) {
             )
         }
 
-        composable("patient_prescriptions_screen") {
+        composable(
+            route = "patient_prescriptions_screen/{doctorKey}",
+            arguments = listOf(
+                navArgument("doctorKey") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val doctorKey = backStackEntry.arguments?.getString("doctorKey").orEmpty()
+
             // Patient viewing their own PRESCRIPTIONS (can upload)
+            // doctorKey is available if you want to filter by doctor in the screen
             PatientReportsScreen(
                 navController = navController,
                 context = context,
