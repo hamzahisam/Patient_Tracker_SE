@@ -14,11 +14,11 @@ import com.example.patienttracker.ui.theme.PatientTrackerTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // Apply saved language before setting content
-        val context = LanguageManager.setAppLanguage(this, 
+        val context = LanguageManager.setAppLanguage(this,
             LanguageManager.getSavedLanguage(this))
-        
+
         setContent {
             PatientTrackerTheme {
                 Surface(

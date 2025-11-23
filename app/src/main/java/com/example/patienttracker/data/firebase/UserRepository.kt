@@ -1,6 +1,11 @@
 package com.example.patienttracker.data.firebase
 
+import android.content.Context
+import android.util.Log
+import com.example.patienttracker.data.Appointment
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.firestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
@@ -152,4 +157,48 @@ object UserRepository {
             }
         )
     }
+
+    suspend fun cancelAppointment(appointment: Appointment) {
+        try {
+            // Match how appointments are stored in Firestore
+            val querySnapshot = db.collection("appointments")
+                .whereEqualTo("patientId", appointment.patientId)
+                .whereEqualTo("doctorId", appointment.doctorId)
+                .whereEqualTo("date", appointment.date)
+                .whereEqualTo("timing", appointment.timing)
+                .get()
+                .await()
+
+            if (querySnapshot.isEmpty) {
+                Log.w(
+                    "UserRepository",
+                    "No appointment found to cancel for ${appointment.date} ${appointment.timing}"
+                )
+            } else {
+                for (doc in querySnapshot.documents) {
+                    doc.reference.delete().await()
+                }
+
+                Log.d(
+                    "UserRepository",
+                    "Cancelled appointment: ${appointment.date} ${appointment.timing}"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("UserRepository", "Error cancelling appointment", e)
+        }
+    }
+
+    suspend fun getAppointmentsForPatient(patientId: String): List<Appointment> {
+        val snapshot = FirebaseFirestore.getInstance()
+            .collection("appointments")
+            .whereEqualTo("patientId", patientId)
+            .get()
+            .await()
+
+        return snapshot.documents.mapNotNull { doc ->
+            doc.toObject(Appointment::class.java)
+        }
+    }
+
 }

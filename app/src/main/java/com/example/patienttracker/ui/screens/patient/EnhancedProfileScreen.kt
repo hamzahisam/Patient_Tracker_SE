@@ -108,7 +108,7 @@ fun EnhancedProfileScreen(navController: NavController) {
                                     val success = AuthManager.updateCurrentUserProfile(
                                         firstName = firstName.trim(),
                                         lastName = lastName.trim(),
-                                        phoneNumber = phone.trim()
+                                        phone = phone.trim()
                                     )
                                     if (success) {
                                         isEditing = false

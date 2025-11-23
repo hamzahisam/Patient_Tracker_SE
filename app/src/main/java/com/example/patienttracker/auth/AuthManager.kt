@@ -41,7 +41,7 @@ object AuthManager {
                 lastName = userDoc.getString("lastName") ?: "",
                 email = userDoc.getString("email") ?: "",
                 humanId = userDoc.getString("humanId") ?: "",
-                phoneNumber = userDoc.getString("phoneNumber")
+                phoneNumber = userDoc.getString("phone")
             )
         } catch (e: Exception) {
             null
@@ -51,7 +51,7 @@ object AuthManager {
     suspend fun updateCurrentUserProfile(
         firstName: String,
         lastName: String,
-        phoneNumber: String
+        phone: String
     ): Boolean {
         val currentUser = auth.currentUser ?: return false
 
@@ -60,8 +60,8 @@ object AuthManager {
             "lastName" to lastName
         )
 
-        if (phoneNumber.isNotBlank()) {
-            updates["phoneNumber"] = phoneNumber
+        if (phone.isNotBlank()) {
+            updates["phone"] = phone
         }
 
         return try {

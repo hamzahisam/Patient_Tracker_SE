@@ -150,7 +150,6 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
                         // Navigate to settings screen
                         navController.navigate("settings")
                     }
-                    IconBubble(R.drawable.ic_notifications) { /* TODO: handle notification click */ }
                 }
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
@@ -498,23 +497,31 @@ private fun ScheduleCard(
             appointments.forEachIndexed { index, appointment ->
                 Column {
                     Row(
-                        Modifier.fillMaxWidth().padding(top = 6.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val primaryTextColor = MaterialTheme.colorScheme.onSurface
+                        val accentColor = Color(0xFF4CB7C2)
+
                         Text(
-                            appointment.time,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF2A6C74)
+                            text = appointment.timing,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = primaryTextColor
                         )
+
                         Spacer(Modifier.width(12.dp))
+
                         Text(
-                            "${appointment.doctorName} (${appointment.speciality})",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF2A6C74)
+                            text = "${appointment.doctorFirstName + " " + appointment.doctorLastName} (${appointment.doctorSpeciality})",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = accentColor
                         )
-                    }
-                    if (index != appointments.lastIndex) {
-                        Divider(Modifier.padding(vertical = 12.dp), color = Color(0xFFB9E3E7))
                     }
                 }
             }
@@ -669,7 +676,7 @@ fun PatientRecordDoctorListScreen(
         }
 
         // Group by doctor name (no Kotlin reflection)
-        val grouped = upcoming.groupBy { appt -> appt.doctorName }
+        val grouped = upcoming.groupBy { appt -> appt.doctorFirstName + " " + appt.doctorLastName }
 
         grouped.mapNotNull { (key, list) ->
             if (list.isEmpty()) return@mapNotNull null
@@ -681,8 +688,8 @@ fun PatientRecordDoctorListScreen(
 
             DoctorRecordEntry(
                 key = key,
-                doctorName = first.doctorName,
-                speciality = first.speciality,
+                doctorName = first.doctorFirstName + " " + first.doctorLastName,
+                speciality = first.doctorSpeciality,
                 nextAppointmentDate = earliestDate
             )
         }.sortedBy { it.nextAppointmentDate }

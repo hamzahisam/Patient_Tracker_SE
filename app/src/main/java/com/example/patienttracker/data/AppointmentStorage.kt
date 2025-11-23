@@ -5,6 +5,7 @@ import com.example.patienttracker.ui.screens.patient.DoctorFull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import com.google.firebase.firestore.IgnoreExtraProperties
 
 object AppointmentStorage {
     private const val FILE_NAME = "PatientAppointments.json"
@@ -41,9 +42,16 @@ object AppointmentStorage {
     }
 }
 
+
+@IgnoreExtraProperties
 data class Appointment(
-    val doctorName: String,
-    val speciality: String,
-    val date: String,
-    val time: String
+    val id: String = "",
+    val patientId: String = "",
+    val doctorId: String = "",
+    val date: String = "",
+    val timing: String = "",           // matches Firestore field "timing"
+    val doctorFirstName: String = "",  // matches "doctorFirstName"
+    val doctorLastName: String = "",   // matches "doctorLastName"
+    val doctorSpeciality: String = "", // matches "doctorSpeciality"
+    val status: String = ""
 )

@@ -182,7 +182,6 @@ private fun DoctorHeader(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconBubble(iconRes = R.drawable.ic_notifications, onClick = onBell)
                 IconBubble(iconRes = R.drawable.ic_settings, onClick = onSettings)
             }
 

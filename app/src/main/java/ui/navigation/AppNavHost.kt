@@ -50,6 +50,7 @@ import com.example.patienttracker.ui.screens.doctor.DoctorSettingsScreen
 import com.example.patienttracker.ui.screens.patient.PatientRecordDoctorListScreen
 import com.example.patienttracker.ui.screens.patient.SpecialtiesScreen
 import com.example.patienttracker.ui.screens.patient.FavoritesScreen
+import com.example.patienttracker.ui.screens.patient.PastScheduleScreen
 
 
 object Route {
@@ -487,5 +488,10 @@ fun AppNavHost(context: Context) {
         composable("record_doctor_list") {
             PatientRecordDoctorListScreen(navController = navController)
         }
+
+        composable("patient_past_schedule") {
+            PastScheduleScreen(navController = navController, context = context)
+        }
+
     }
 }
