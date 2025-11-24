@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -42,6 +43,7 @@ import com.example.patienttracker.R
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -119,20 +121,7 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
 
             UpcomingSchedule(gradient = gradient, navController = navController)
 
-            SpecialtiesGrid(
-                titleGradient = gradient,
-                specialties = listOf(
-                    Spec("Cardiology", R.drawable.ic_cardiology),
-                    Spec("Dermatology", R.drawable.ic_dermatology),
-                    Spec("General Medicine", R.drawable.ic_general_medicine),
-                    Spec("Gynecology", R.drawable.ic_gynecology),
-                    Spec("Odontology", R.drawable.ic_odontology),
-                    Spec("Oncology", R.drawable.ic_oncology),
-                ),
-                onSpecialtyClick = { spec ->
-                    navController.navigate("doctor_list/${spec.title}")
-                }
-            )
+            PainSearchBar(navController = navController)
         }
     }
 }
@@ -308,7 +297,7 @@ private fun CategoriesRow(items: List<Category>, onCategoryClick: (Category) -> 
         Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { category ->
@@ -323,13 +312,13 @@ private fun CategoriesRow(items: List<Category>, onCategoryClick: (Category) -> 
 }
 
 @Composable
-private fun CategoryChip(
+private fun RowScope.CategoryChip(
     cat: Category,
-    onClick: (Category) -> Unit = {}    // callback for handling click
+    onClick: (Category) -> Unit = {}
 ) {
     Column(
         modifier = Modifier
-            .width(100.dp)
+            .weight(1f)
             .clip(RoundedCornerShape(12.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -347,6 +336,222 @@ private fun CategoryChip(
                 .padding(top = 4.dp),
             contentScale = ContentScale.Fit
         )
+    }
+}
+
+@Composable
+private fun PainSearchBar(
+    navController: NavController
+) {
+    val accent = Color(0xFF4CB7C2)
+    var query by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = "Search by Condition",
+            style = MaterialTheme.typography.titleMedium.copy(
+                color = accent,
+                fontWeight = FontWeight.SemiBold
+            )
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("e.g. fever, chest pain, toothache") },
+            trailingIcon = {
+                IconButton(
+                    onClick = {
+                        val speciality = mapPainToSpeciality(query)
+                        val target = speciality ?: "General Medicine"
+                        if (query.isNotBlank()) {
+                            navController.navigate("doctor_list/$target")
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = accent
+                    )
+                }
+            },
+            colors = TextFieldDefaults.colors(
+                focusedIndicatorColor = accent,
+                unfocusedIndicatorColor = accent.copy(alpha = 0.6f),
+                cursorColor = accent,
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                focusedLabelColor = accent
+            )
+        )
+    }
+}
+
+private fun mapPainToSpeciality(raw: String): String? {
+    if (raw.isBlank()) return null
+    val q = raw.lowercase(Locale.getDefault())
+
+    return when {
+        // Cardiology
+        listOf(
+            "chest pain",
+            "chest tightness",
+            "chest pressure",
+            "heart pain",
+            "palpitation",
+            "palpitations",
+            "rapid heartbeat",
+            "fast heartbeat",
+            "slow heartbeat",
+            "shortness of breath",
+            "breathless",
+            "breathlessness",
+            "bp",
+            "blood pressure",
+            "high bp",
+            "low bp",
+            "hypertension",
+            "angina",
+            "heart"
+        ).any { it in q } -> "Cardiology"
+
+        // Dermatology
+        listOf(
+            "skin",
+            "rash",
+            "rashes",
+            "itch",
+            "itching",
+            "eczema",
+            "psoriasis",
+            "pimple",
+            "pimples",
+            "acne",
+            "allergy",
+            "allergic",
+            "hives",
+            "red patches",
+            "fungal",
+            "ringworm",
+            "hair fall",
+            "hairfall",
+            "dandruff",
+            "nail infection"
+        ).any { it in q } -> "Dermatology"
+
+        // Gynecology
+        listOf(
+            "pregnan",
+            "pregnancy",
+            "pregnant",
+            "period",
+            "periods",
+            "menstrual",
+            "menstruation",
+            "painful periods",
+            "pcos",
+            "pcod",
+            "fertility",
+            "infertility",
+            "uterus",
+            "uterine",
+            "ovary",
+            "ovarian",
+            "pelvic pain",
+            "vaginal",
+            "vaginal discharge"
+        ).any { it in q } -> "Gynecology"
+
+        // Odontology (dentist)
+        listOf(
+            "tooth",
+            "teeth",
+            "toothache",
+            "teeth pain",
+            "dental",
+            "dentist",
+            "cavity",
+            "cavities",
+            "decay",
+            "gum",
+            "gums",
+            "bleeding gum",
+            "bleeding gums",
+            "jaw",
+            "jaw pain",
+            "mouth ulcer",
+            "wisdom tooth",
+            "braces"
+        ).any { it in q } -> "Odontology"
+
+        // Oncology
+        listOf(
+            "cancer",
+            "tumor",
+            "tumour",
+            "lump",
+            "mass",
+            "chemo",
+            "chemotherapy",
+            "radiotherapy",
+            "onco",
+            "leukemia",
+            "lymphoma",
+            "breast lump",
+            "breast cancer"
+        ).any { it in q } -> "Oncology"
+
+        // General medicine — fevers, cough, etc.
+        listOf(
+            "fever",
+            "flu",
+            "cold",
+            "cough",
+            "headache",
+            "migraine",
+            "stomach",
+            "stomachache",
+            "stomach ache",
+            "gas",
+            "gastric",
+            "indigestion",
+            "vomit",
+            "vomiting",
+            "nausea",
+            "diarrhea",
+            "diarrhoea",
+            "loose motion",
+            "body pain",
+            "body ache",
+            "bodyache",
+            "sore throat",
+            "throat pain",
+            "infection",
+            "viral",
+            "weakness",
+            "tired",
+            "fatigue",
+            "back pain",
+            "leg pain",
+            "arm pain",
+            "muscle pain",
+            "joint pain",
+            "burning urine",
+            "urine infection",
+            "uti",
+            "urinary infection",
+            "pain"
+        ).any { it in q } -> "General Medicine"
+
+        else -> null
     }
 }
 
@@ -420,22 +625,24 @@ private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
         }
 
         // --- Header ---
+        val accent = Color(0xFF4CB7C2)
+        val barColor = MaterialTheme.colorScheme.surface
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(brush = gradient)
+                .background(color = barColor)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 "Upcoming Schedule",
-                color = Color.White,
+                color = accent,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(Modifier.weight(1f))
             Text(
                 displayedMonth,
-                color = Color.White.copy(alpha = 0.9f),
+                color = accent.copy(alpha = 0.85f),
                 style = MaterialTheme.typography.labelLarge
             )
         }

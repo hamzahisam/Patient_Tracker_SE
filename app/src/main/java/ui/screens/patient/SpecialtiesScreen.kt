@@ -76,13 +76,17 @@ fun SpecialtiesScreen(navController: NavController) {
                     SpecialtyIcon(
                         spec = specialties[0],
                         modifier = Modifier
-                            .size(180.dp)
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .padding(horizontal = 4.dp)
                     ) { navController.navigate("doctor_list/Cardiology") }
 
                     SpecialtyIcon(
                         spec = specialties[1],
                         modifier = Modifier
-                            .size(180.dp)
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .padding(horizontal = 4.dp)
                     ) { navController.navigate("doctor_list/Dermatology") }
                 }
 
@@ -95,13 +99,17 @@ fun SpecialtiesScreen(navController: NavController) {
                     SpecialtyIcon(
                         spec = specialties[2],
                         modifier = Modifier
-                            .size(180.dp)
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .padding(horizontal = 4.dp)
                     ) { navController.navigate("doctor_list/General Medicine") }
 
                     SpecialtyIcon(
                         spec = specialties[3],
                         modifier = Modifier
-                            .size(180.dp)
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .padding(horizontal = 4.dp)
                     ) { navController.navigate("doctor_list/Gynecology") }
                 }
 
@@ -114,13 +122,17 @@ fun SpecialtiesScreen(navController: NavController) {
                     SpecialtyIcon(
                         spec = specialties[4],
                         modifier = Modifier
-                            .size(180.dp)
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .padding(horizontal = 4.dp)
                     ) { navController.navigate("doctor_list/Odontology") }
 
                     SpecialtyIcon(
                         spec = specialties[5],
                         modifier = Modifier
-                            .size(180.dp)
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .padding(horizontal = 4.dp)
                     ) { navController.navigate("doctor_list/Oncology") }
                 }
             }
