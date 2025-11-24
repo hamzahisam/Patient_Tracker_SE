@@ -59,7 +59,7 @@ fun SplashScreen() {
 
                 // App title
                 Text(
-                    text = "Patient Tracker",
+                    text = "Shifa Track",
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
                     color = colorScheme.onBackground

@@ -12,7 +12,7 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "PatientTracker"
+rootProject.name = "Shifa Track"
 include(":app")
 
 dependencyResolutionManagement {
@@ -23,5 +23,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Patient Tracker"
+rootProject.name = "Shifa Track"
 include(":app")

@@ -58,7 +58,7 @@ fun LoginScreen(
                     Spacer(Modifier.height(16.dp))
 
                     Text(
-                        text = "Patient Tracker",
+                        text = "Shifa Track",
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = 0.5.sp

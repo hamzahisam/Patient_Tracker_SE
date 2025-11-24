@@ -41,7 +41,7 @@ fun RoleSelectorScreen(onRoleSelected: (String) -> Unit) {
                     .padding(bottom = 24.dp)
             )
             Text(
-                text = "Welcome to Patient Tracker",
+                text = "Welcome to Shifa Track",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = accentBlue
