@@ -55,9 +55,10 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
 
             // Fetch appointments based on humanId
             val remoteAppointments = UserRepository.getAppointmentsForPatient(humanId)
+            val upcomingAppointments = remoteAppointments.filter { !isPastAppointment(it) }
 
             appointments.clear()
-            appointments.addAll(remoteAppointments)
+            appointments.addAll(upcomingAppointments)
         } finally {
             isLoading = false          // <- stop loading in all cases
         }

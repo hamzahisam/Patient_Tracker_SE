@@ -25,6 +25,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 
@@ -159,23 +160,30 @@ fun BookAppointmentScreen(
                         items(slots) { slot ->
                             val isSelected = slot == selectedTimeState
                             val isBooked = bookedSlots.contains(slot)
+                            // treat time slots that are already in the past (for the selected date) as disabled
+                            val isPast = isSlotInPast(selectedDate, slot)
+
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = when {
                                     isSelected -> Color(0xFF3CC7CD)
-                                    isBooked -> Color.Red.copy(alpha = 0.5f)
+                                    isBooked || isPast -> Color.Red.copy(alpha = 0.5f)
                                     else -> MaterialTheme.colorScheme.surface
                                 },
                                 border = BorderStroke(1.dp, Color(0xFF4CB7C2)),
                                 shadowElevation = if (isSelected) 4.dp else 0.dp,
                                 modifier = Modifier
-                                    .clickable(enabled = !isBooked) { selectedTimeState = slot }
+                                    .clickable(enabled = !isBooked && !isPast) { selectedTimeState = slot }
                                     .padding(4.dp)
                             ) {
                                 Text(
                                     slot,
                                     modifier = Modifier.padding(8.dp),
-                                    color = if (isSelected) Color.White else if (isBooked) Color.White else MaterialTheme.colorScheme.onSurface
+                                    color = when {
+                                        isSelected -> Color.White
+                                        isBooked || isPast -> Color.White
+                                        else -> MaterialTheme.colorScheme.onSurface
+                                    }
                                 )
                             }
                         }
@@ -290,6 +298,17 @@ fun generateTimeSlots(timings: List<String>): List<String> {
     }
 
     return slots
+}
+
+private fun isSlotInPast(selectedDate: LocalDate, slot: String): Boolean {
+    return try {
+        val formatter = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
+        val slotTime = LocalTime.parse(slot.trim().uppercase(Locale.US), formatter)
+        val slotDateTime = LocalDateTime.of(selectedDate, slotTime)
+        slotDateTime.isBefore(LocalDateTime.now())
+    } catch (e: Exception) {
+        false
+    }
 }
 
 @Composable

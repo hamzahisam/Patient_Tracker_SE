@@ -51,8 +51,10 @@ import com.example.patienttracker.auth.AuthManager
 import com.example.patienttracker.auth.UserProfile
 import androidx.compose.runtime.produceState
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.delay
 import androidx.compose.material3.CircularProgressIndicator
 import java.time.format.DateTimeFormatter
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -164,6 +166,18 @@ private fun DoctorHeader(
     onSearch: () -> Unit,
     onProfile: () -> Unit,
 ) {
+    // Time and date formatting state
+    val timeFormatter = remember { DateTimeFormatter.ofPattern("hh:mm a") }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("EEE, dd MMM") }
+    var currentTimeText by remember { mutableStateOf(LocalTime.now().format(timeFormatter)) }
+    var currentDateText by remember { mutableStateOf(LocalDate.now().format(dateFormatter)) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTimeText = LocalTime.now().format(timeFormatter)
+            currentDateText = LocalDate.now().format(dateFormatter)
+            delay(60_000)
+        }
+    }
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -184,8 +198,24 @@ private fun DoctorHeader(
             ) {
                 IconBubble(iconRes = R.drawable.ic_settings, onClick = onSettings)
             }
+            Spacer(Modifier.width(12.dp))
 
-            Spacer(Modifier.weight(1f))
+            // CENTER: Time and Date
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    currentTimeText,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = Color(0xFF4CB7C2)
+                )
+                Text(
+                    currentDateText,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFF4CB7C2).copy(alpha = 0.9f)
+                )
+            }
 
             // RIGHT: greeting + name + avatar
             Column(horizontalAlignment = Alignment.End) {

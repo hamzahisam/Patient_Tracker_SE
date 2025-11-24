@@ -46,12 +46,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.delay
 import com.example.patienttracker.data.AppointmentStorage
 import com.example.patienttracker.data.Appointment
 import java.time.format.DateTimeFormatter
@@ -136,40 +138,98 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
 /* ----------------------------- Header ------------------------------ */
 
 @Composable
-private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, navController: NavController) {
+private fun HeaderCard(
+    gradient: Brush,
+    firstName: String,
+    lastName: String,
+    navController: NavController
+) {
+    val accent = Color(0xFF4CB7C2)
+
+    // Current time & date state
+    var currentDateTime by remember { mutableStateOf(LocalDateTime.now()) }
+    val timeFormatter = remember { DateTimeFormatter.ofPattern("hh:mm a") }
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("EEE, dd MMM") }
+
+    // Update every minute so the clock stays fresh
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentDateTime = LocalDateTime.now()
+            delay(60_000)
+        }
+    }
+
+    val currentTimeText = currentDateTime.format(timeFormatter)
+    val currentDateText = currentDateTime.format(dateFormatter)
+
     Surface(
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Quick actions (placeholders)
+                // Left: Settings icon
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     IconBubble(R.drawable.ic_settings) {
-                        // Navigate to settings screen
                         navController.navigate("settings")
                     }
                 }
-                Spacer(Modifier.weight(1f))
+
+                Spacer(Modifier.width(12.dp))
+
+                // Center: current time + date
+                Column(
+                    modifier = Modifier
+                        .weight(2f)                 // was 1f → takes more horizontal space
+                        .padding(horizontal = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = currentTimeText,
+                        style = MaterialTheme.typography.headlineSmall.copy( // bigger style
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = accent
+                    )
+                    Text(
+                        text = currentDateText,
+                        style = MaterialTheme.typography.bodyMedium.copy(    // a bit bigger than label
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = accent.copy(alpha = 0.85f)
+                    )
+                }
+
+                Spacer(Modifier.width(8.dp)) // you can also reduce this from 12.dp
+
+                // Right: greeting + name
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        "Hi,",
+                        text = "Hi,",
                         style = MaterialTheme.typography.labelLarge.copy(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                             fontWeight = FontWeight.SemiBold
                         )
                     )
                     Text(
-                        firstName,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        text = firstName,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+
                 Spacer(Modifier.width(12.dp))
-                // Avatar placeholder - make it clickable
+
+                // Avatar placeholder - clickable to profile
                 Box(
                     modifier = Modifier
                         .size(40.dp)
@@ -177,7 +237,7 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
                         .background(MaterialTheme.colorScheme.background)
                         .border(
                             width = 1.dp,
-                            color = Color(0xFF4CB7C2),
+                            color = accent,
                             shape = CircleShape
                         )
                         .clickable {
@@ -191,10 +251,13 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
                         if (firstName.isNotBlank()) append(firstName.first().uppercaseChar())
                         if (lastName.isNotBlank()) append(lastName.first().uppercaseChar())
                     }.ifBlank { "P" }
+
                     Text(
-                        initials,
-                        color = Color(0xFF4CB7C2),
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                        text = initials,
+                        color = accent,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                 }
             }
@@ -257,7 +320,6 @@ private fun CategoriesRow(items: List<Category>, onCategoryClick: (Category) -> 
     }
 }
 
-
 @Composable
 private fun CategoryChip(
     cat: Category,
@@ -312,22 +374,41 @@ private fun monthLabel(date: LocalDate, locale: Locale = Locale.getDefault()): S
 
 @Composable
 private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
-    val context = LocalContext.current
-    val allAppointments = remember { AppointmentStorage.getAppointments(context) }
+    val locale = Locale.getDefault()
+
+    var appointments by remember { mutableStateOf<List<Appointment>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Load patient’s appointments from Firestore
+    LaunchedEffect(Unit) {
+        try {
+            val profile = AuthManager.getCurrentUserProfile()
+            val patientId = profile?.humanId
+
+            appointments = if (!patientId.isNullOrBlank()) {
+                UserRepository.getAppointmentsForPatient(patientId)
+                    .filter { it.status.equals("booked", ignoreCase = true) }
+            } else {
+                emptyList()
+            }
+        } catch (_: Exception) {
+            appointments = emptyList()
+        } finally {
+            isLoading = false
+        }
+    }
 
     Column(Modifier.fillMaxWidth()) {
+        // build date chips around today
         val (dates, todayIndex) = remember { generateDateChipsAroundToday(pastDays = 7, futureDays = 7) }
-        val locale = Locale.getDefault()
         var displayedMonth by remember { mutableStateOf(monthLabel(dates[todayIndex].date, locale)) }
         var selected by rememberSaveable { mutableIntStateOf(todayIndex) }
-
         val listState = rememberLazyListState()
 
         LaunchedEffect(dates) {
             listState.scrollToItem((todayIndex - 2).coerceAtLeast(0))
         }
 
-        // update month label as scroll changes
         LaunchedEffect(listState, dates) {
             snapshotFlow { listState.firstVisibleItemIndex }
                 .collect { idx ->
@@ -378,24 +459,26 @@ private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
             }
         }
 
-        // --- Filter appointments by selected date ---
         val selectedDate = dates[selected].date
-        val filtered = remember(selectedDate, allAppointments) {
-            allAppointments.filter { appointment ->
-                // Parse the appointment date string and compare with selected date
-                try {
-                    val formatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale)
-                    val appointmentDate = LocalDate.parse(appointment.date, formatter)
-                    appointmentDate == selectedDate
-                } catch (e: Exception) {
-                    // If parsing fails, try alternative approach
-                    appointment.date.contains(selectedDate.dayOfMonth.toString()) &&
-                    appointment.date.contains(selectedDate.month.getDisplayName(TextStyle.SHORT, locale))
-                }
+
+        // While loading, show the “no appointments” card as a skeleton,
+        // or you can drop in a small CircularProgressIndicator if you prefer.
+        if (isLoading) {
+            NoAppointmentsCard(gradient, selectedDate)
+            return@Column
+        }
+
+        // Filter Firestore appointments by selected date
+        val dateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale)
+        val filtered = appointments.filter { appointment ->
+            try {
+                val apptDate = LocalDate.parse(appointment.date, dateFormatter)
+                apptDate == selectedDate
+            } catch (e: Exception) {
+                false
             }
         }
 
-        // --- Show schedule card ---
         if (filtered.isEmpty()) {
             NoAppointmentsCard(gradient, selectedDate)
         } else {
@@ -408,7 +491,6 @@ private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
         }
     }
 }
-
 
 data class DayChip(val date: LocalDate, val day: String, val dow: String)
 
