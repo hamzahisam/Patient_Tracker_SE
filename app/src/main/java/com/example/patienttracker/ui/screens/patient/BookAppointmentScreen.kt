@@ -6,12 +6,15 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -110,7 +113,7 @@ fun BookAppointmentScreen(
         }
     ) { innerPadding ->
 
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
@@ -119,141 +122,155 @@ fun BookAppointmentScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Dr. ${doctor.firstName} ${doctor.lastName}", fontWeight = FontWeight.Bold)
-            Text("Speciality: ${doctor.speciality}", color = Color(0xFF4CB7C2))
-            Text("Available Days: ${doctor.days}")
-            Text("Timings: ${doctor.timings}")
+            // Doctor header
+            item {
+                Text("Dr. ${doctor.firstName} ${doctor.lastName}", fontWeight = FontWeight.Bold)
+                Text("Speciality: ${doctor.speciality}", color = Color(0xFF4CB7C2))
+                Text("Available Days: ${doctor.days}")
+                Text("Timings: ${doctor.timings}")
 
-            Spacer(Modifier.height(12.dp))
-
-            // --- Date picker ---
-            DatePicker(selectedDate, availableDays) { date ->
-                selectedDate = date
-                selectedTime = null
+                Spacer(Modifier.height(12.dp))
             }
 
-            val dayName = selectedDate.dayOfWeek.name.lowercase(Locale.ROOT)
-            val canBook = availableDays.any { dayName.contains(it.take(3)) || it.contains(dayName.take(3)) }
+            // Date picker
+            item {
+                DatePicker(selectedDate, availableDays) { date ->
+                    selectedDate = date
+                    selectedTime = null
+                }
+            }
 
-            if (!canBook) {
-                Text(
-                    "Doctor not available on this day.",
-                    color = Color.Red
-                )
-            } else {
-                // --- Time slot picker ---
-                val slots = remember(selectedDate) { generateTimeSlots(timingStrings) }
-                var selectedTimeState by remember { mutableStateOf(selectedTime) }
+            // Time slots + confirm button or not-available message
+            item {
+                val dayName = selectedDate.dayOfWeek.name.lowercase(Locale.ROOT)
+                val canBook = availableDays.any { dayName.contains(it.take(3)) || it.contains(dayName.take(3)) }
 
-                Column(horizontalAlignment = Alignment.Start) {
-                    Text("Select Time Slot:", fontWeight = FontWeight.Bold)
+                if (!canBook) {
+                    Text(
+                        "Doctor not available on this day.",
+                        color = Color.Red
+                    )
+                } else {
+                    // --- Time slot picker ---
+                    val slots = remember(selectedDate) { generateTimeSlots(timingStrings) }
+                    var selectedTimeState by remember { mutableStateOf(selectedTime) }
 
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(4),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 300.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        userScrollEnabled = true
-                    ) {
-                        items(slots) { slot ->
-                            val isSelected = slot == selectedTimeState
-                            val isBooked = bookedSlots.contains(slot)
-                            // treat time slots that are already in the past (for the selected date) as disabled
-                            val isPast = isSlotInPast(selectedDate, slot)
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text("Select Time Slot:", fontWeight = FontWeight.Bold)
 
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = when {
-                                    isSelected -> Color(0xFF3CC7CD)
-                                    isBooked || isPast -> Color.Red.copy(alpha = 0.5f)
-                                    else -> MaterialTheme.colorScheme.surface
-                                },
-                                border = BorderStroke(1.dp, Color(0xFF4CB7C2)),
-                                shadowElevation = if (isSelected) 4.dp else 0.dp,
-                                modifier = Modifier
-                                    .clickable(enabled = !isBooked && !isPast) { selectedTimeState = slot }
-                                    .padding(4.dp)
-                            ) {
-                                Text(
-                                    slot,
-                                    modifier = Modifier.padding(8.dp),
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(4),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 300.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            userScrollEnabled = true
+                        ) {
+                            items(slots) { slot ->
+                                val isSelected = slot == selectedTimeState
+                                val isBooked = bookedSlots.contains(slot)
+                                // treat time slots that are already in the past (for the selected date) as disabled
+                                val isPast = isSlotInPast(selectedDate, slot)
+
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
                                     color = when {
-                                        isSelected -> Color.White
-                                        isBooked || isPast -> Color.White
-                                        else -> MaterialTheme.colorScheme.onSurface
-                                    }
-                                )
+                                        isSelected -> Color(0xFF3CC7CD)
+                                        isBooked || isPast -> Color.Red.copy(alpha = 0.5f)
+                                        else -> MaterialTheme.colorScheme.surface
+                                    },
+                                    border = BorderStroke(1.dp, Color(0xFF4CB7C2)),
+                                    shadowElevation = if (isSelected) 4.dp else 0.dp,
+                                    modifier = Modifier
+                                        .clickable(enabled = !isBooked && !isPast) {
+                                            selectedTimeState = slot
+                                            selectedTime = slot
+                                        }
+                                        .padding(4.dp)
+                                ) {
+                                    Text(
+                                        slot,
+                                        modifier = Modifier.padding(8.dp),
+                                        color = when {
+                                            isSelected -> Color.White
+                                            isBooked || isPast -> Color.White
+                                            else -> MaterialTheme.colorScheme.onSurface
+                                        }
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                    // --- Confirm button ---
-                    Button(
-                        onClick = {
-                            if (!canBook) return@Button
+                        // --- Confirm button ---
+                        Button(
+                            onClick = {
+                                if (!canBook) return@Button
 
-                            val profile = patientProfile
-                            val currentPatientId = profile?.humanId?.ifBlank { null } ?: profile?.uid
-                            if (currentPatientId.isNullOrBlank() || selectedTimeState == null) {
-                                message = "Select a valid date and time."
-                                return@Button
-                            }
-
-                            val formattedDate = selectedDate.format(dateFormatter)
-                            val selectedTiming = selectedTimeState!!
-
-                            // Save locally
-                            AppointmentStorage.saveAppointment(context, doctor, formattedDate, selectedTiming)
-
-                            // Save to Firestore
-                            isSaving = true
-                            message = ""
-                            val appointmentData = hashMapOf(
-                                "doctorId" to doctor.id,
-                                "doctorFirstName" to doctor.firstName,
-                                "doctorLastName" to doctor.lastName,
-                                "doctorSpeciality" to doctor.speciality,
-                                "patientId" to currentPatientId,
-                                "patientFirstName" to (profile?.firstName ?: ""),
-                                "patientLastName" to (profile?.lastName ?: ""),
-                                "date" to formattedDate,
-                                "timing" to selectedTiming,
-                                "status" to "booked",
-                                "createdAt" to FieldValue.serverTimestamp()
-                            )
-
-                            db.collection("appointments")
-                                .add(appointmentData)
-                                .addOnSuccessListener { docRef ->
-                                    Log.d("BookAppointment", "Appointment stored with id=${docRef.id}")
-                                    message = "Appointment booked successfully!"
-                                    isSaving = false
-                                }
-                                .addOnFailureListener { e ->
-                                    Log.e("BookAppointment", "Failed to store appointment", e)
-                                    message = "Failed to book appointment. Please try again."
-                                    isSaving = false
+                                val profile = patientProfile
+                                val currentPatientId = profile?.humanId?.ifBlank { null } ?: profile?.uid
+                                if (currentPatientId.isNullOrBlank() || selectedTimeState == null) {
+                                    message = "Select a valid date and time."
+                                    return@Button
                                 }
 
-                        },
-                        enabled = selectedTimeState != null && !isSaving,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3CC7CD)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(if (isSaving) "Booking…" else "Confirm Booking", color = Color.White)
+                                val formattedDate = selectedDate.format(dateFormatter)
+                                val selectedTiming = selectedTimeState!!
+
+                                // Save locally
+                                AppointmentStorage.saveAppointment(context, doctor, formattedDate, selectedTiming)
+
+                                // Save to Firestore
+                                isSaving = true
+                                message = ""
+                                val appointmentData = hashMapOf(
+                                    "doctorId" to doctor.id,
+                                    "doctorFirstName" to doctor.firstName,
+                                    "doctorLastName" to doctor.lastName,
+                                    "doctorSpeciality" to doctor.speciality,
+                                    "patientId" to currentPatientId,
+                                    "patientFirstName" to (profile?.firstName ?: ""),
+                                    "patientLastName" to (profile?.lastName ?: ""),
+                                    "date" to formattedDate,
+                                    "timing" to selectedTiming,
+                                    "status" to "booked",
+                                    "createdAt" to FieldValue.serverTimestamp()
+                                )
+
+                                db.collection("appointments")
+                                    .add(appointmentData)
+                                    .addOnSuccessListener { docRef ->
+                                        Log.d("BookAppointment", "Appointment stored with id=${docRef.id}")
+                                        message = "Appointment booked successfully!"
+                                        isSaving = false
+                                    }
+                                    .addOnFailureListener { e ->
+                                        Log.e("BookAppointment", "Failed to store appointment", e)
+                                        message = "Failed to book appointment. Please try again."
+                                        isSaving = false
+                                    }
+
+                            },
+                            enabled = selectedTimeState != null && !isSaving,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3CC7CD)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (isSaving) "Booking…" else "Confirm Booking", color = Color.White)
+                        }
                     }
                 }
             }
 
-            if (message.isNotEmpty()) {
-                Text(
-                    message,
-                    color = if (message.contains("success", ignoreCase = true)) Color(0xFF2A6C74) else Color.Red
-                )
+            // Message at the bottom
+            item {
+                if (message.isNotEmpty()) {
+                    Text(
+                        message,
+                        color = if (message.contains("success", ignoreCase = true)) Color(0xFF2A6C74) else Color.Red
+                    )
+                }
             }
         }
     }
