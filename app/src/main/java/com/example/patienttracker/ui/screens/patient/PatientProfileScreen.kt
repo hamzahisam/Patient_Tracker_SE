@@ -70,7 +70,7 @@ fun PatientProfileScreen(
 
     Scaffold(
         bottomBar = {
-            PatientBottomBar(navController = navController)
+            PatientBottomBar(navController = navController, selectedTab = 2)
         }
     ) { innerPadding ->
         Surface(

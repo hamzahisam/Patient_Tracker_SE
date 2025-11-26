@@ -159,7 +159,7 @@ fun ChatSelectionScreen(
         },
         bottomBar = {
             // Global patient bottom bar
-            PatientBottomBar(navController)
+            PatientBottomBar(navController, selectedTab = 1)
         }
     ) { inner ->
         Box(

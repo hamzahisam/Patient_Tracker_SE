@@ -7,6 +7,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -109,6 +113,7 @@ fun ChatScreen(
     var messageText by remember { mutableStateOf("") }
     val scrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // 🔁 Live Firestore listener – keeps chat in sync
     DisposableEffect(conversationId) {
@@ -220,10 +225,6 @@ fun ChatScreen(
                     }
                 }
             )
-        },
-        bottomBar = {
-            // Global patient bottom bar
-            PatientBottomBar(navController)
         }
     ) { innerPadding ->
         Column(

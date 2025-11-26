@@ -33,6 +33,7 @@ import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorProfileScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorScheduleScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorPastScheduleScreen
 import com.example.patienttracker.ui.screens.patient.ChatSelectionScreen
 import com.example.patienttracker.ui.screens.patient.ChatScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorChatInboxScreen
@@ -417,6 +418,11 @@ fun AppNavHost(context: Context) {
         // Doctor full schedule view (bottom bar "Schedule" tab)
         composable("doctor_schedule") {
             DoctorScheduleScreen(navController)
+        }
+
+        // Doctor past schedule view
+        composable("doctor_past_schedule") {
+            DoctorPastScheduleScreen(navController)
         }
 
         // Doctor Patients screen

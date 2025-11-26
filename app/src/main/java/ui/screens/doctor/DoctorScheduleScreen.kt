@@ -1,6 +1,7 @@
 package com.example.patienttracker.ui.screens.doctor
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -103,6 +106,8 @@ fun DoctorScheduleScreen(navController: NavController) {
                 return@LaunchedEffect
             }
 
+            val today = LocalDate.now()
+
             // Load all appointments for this doctor
             val snapshot = db.collection("appointments")
                 .whereEqualTo("doctorId", doctorId)
@@ -111,6 +116,10 @@ fun DoctorScheduleScreen(navController: NavController) {
 
             val list = snapshot.documents.mapNotNull { doc ->
                 val dateLabel = doc.getString("date") ?: return@mapNotNull null
+                val appointmentDate = parseDateLabel(dateLabel) ?: return@mapNotNull null
+
+                // Only include upcoming appointments (today and future)
+                if (appointmentDate.isBefore(today)) return@mapNotNull null
 
                 val time = doc.getString("timing")
                     ?: doc.getString("time")
@@ -165,14 +174,38 @@ fun DoctorScheduleScreen(navController: NavController) {
                         .clickable { navController.popBackStack() },
                     tint = Color(ACCENT_HEX)
                 )
+
+                Spacer(modifier = Modifier.width(4.dp))
+
                 Text(
                     text = "Schedule",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = Color(ACCENT_HEX)
                 )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                TextButton(
+                    onClick = { navController.navigate("doctor_past_schedule") },
+                    modifier = Modifier
+                        .border(
+                            width = 1.dp,
+                            color = Color(ACCENT_HEX),
+                            shape = RoundedCornerShape(36.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 0.1.dp)
+                ) {
+                    Text(
+                        text = "View Past",
+                        color = Color(ACCENT_HEX),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
             }
         },
-        bottomBar = { DoctorBottomBar(navController, selectedTab = 2) }
+        bottomBar = { DoctorBottomBar(navController, selectedTab = 3) }
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -273,6 +306,169 @@ private fun ScheduleCard(item: DoctorScheduleItem) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+fun DoctorPastScheduleScreen(navController: NavController) {
+    val db = remember { FirebaseFirestore.getInstance() }
+
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var items by remember { mutableStateOf<List<DoctorScheduleItem>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val profile = AuthManager.getCurrentUserProfile()
+            val doctorId = profile?.humanId
+
+            if (doctorId.isNullOrBlank()) {
+                error = "Could not determine doctor ID."
+                loading = false
+                return@LaunchedEffect
+            }
+
+            val today = LocalDate.now()
+
+            // Load all appointments for this doctor
+            val snapshot = db.collection("appointments")
+                .whereEqualTo("doctorId", doctorId)
+                .get()
+                .await()
+
+            val list = snapshot.documents.mapNotNull { doc ->
+                val dateLabel = doc.getString("date") ?: return@mapNotNull null
+                val appointmentDate = parseDateLabel(dateLabel) ?: return@mapNotNull null
+
+                // Only include past appointments
+                if (!appointmentDate.isBefore(today)) return@mapNotNull null
+
+                val time = doc.getString("timing")
+                    ?: doc.getString("time")
+                    ?: ""
+
+                val first = doc.getString("patientFirstName") ?: ""
+                val last = doc.getString("patientLastName") ?: ""
+                val patientName = listOf(first, last)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ")
+                    .ifBlank { "Unknown patient" }
+
+                val status = doc.getString("status") ?: "Completed"
+
+                DoctorScheduleItem(
+                    dateLabel = dateLabel,
+                    time = time,
+                    patientName = patientName,
+                    status = status
+                )
+            }
+                .sortedWith(
+                    compareByDescending<DoctorScheduleItem>(
+                        { parseDateLabel(it.dateLabel) ?: LocalDate.MIN }
+                    ).thenBy { parseStartMinutes(it.time) }
+                )
+
+            items = list
+            error = null
+        } catch (e: Exception) {
+            error = e.message ?: "Failed to load past appointments."
+        } finally {
+            loading = false
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(top = 40.dp, start = 16.dp, end = 16.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                        .clickable { navController.popBackStack() },
+                    tint = Color(ACCENT_HEX)
+                )
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Text(
+                    text = "Past Appointments",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = Color(ACCENT_HEX)
+                )
+            }
+        },
+        bottomBar = { DoctorBottomBar(navController, selectedTab = 3) }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            when {
+                loading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = Color(ACCENT_HEX)
+                    )
+                }
+
+                error != null -> {
+                    Text(
+                        text = "Error: $error",
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+
+                items.isEmpty() -> {
+                    Text(
+                        text = "No past appointments.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+
+                else -> {
+                    // Group by date label
+                    val grouped = items.groupBy { it.dateLabel }
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
+                    ) {
+                        grouped.forEach { (dateLabel, dayItems) ->
+                            item(key = "header_$dateLabel") {
+                                Text(
+                                    text = dateLabel,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = Color(ACCENT_HEX),
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                            }
+
+                            items(dayItems) { appt ->
+                                ScheduleCard(appt)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

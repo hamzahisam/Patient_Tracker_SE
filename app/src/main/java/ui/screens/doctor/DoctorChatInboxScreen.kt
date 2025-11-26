@@ -184,7 +184,7 @@ fun DoctorChatInboxScreen(
                 )
             )
         },
-            bottomBar = { DoctorBottomBar(navController, selectedTab = 2) },
+            bottomBar = { DoctorBottomBar(navController, selectedTab = 1) },
             contentWindowInsets = WindowInsets.systemBars.only(
                 WindowInsetsSides.Top + WindowInsetsSides.Horizontal
             )

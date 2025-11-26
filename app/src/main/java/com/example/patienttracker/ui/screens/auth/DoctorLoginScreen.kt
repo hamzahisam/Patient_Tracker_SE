@@ -4,8 +4,11 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -47,8 +52,10 @@ fun DoctorLoginScreen(
     var showWelcome by remember { mutableStateOf(false) }
     var doctorName by remember { mutableStateOf("") }
     var doctorIdDisplay by remember { mutableStateOf("") }
+    val scrollState = rememberScrollState()
+    val keyboardController = LocalSoftwareKeyboardController.current
 
-    val scope = rememberCoroutineScope()
+    val coroutineScope = rememberCoroutineScope()
 
     if (showWelcome) {
         LaunchedEffect(Unit) {
@@ -86,12 +93,21 @@ fun DoctorLoginScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    keyboardController?.hide()
+                })
+            }
+        ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .imePadding()
                     .padding(24.dp)
             ) {
                 Text(
@@ -173,7 +189,7 @@ fun DoctorLoginScreen(
 
                 Button(
                     onClick = {
-                        scope.launch {
+                        coroutineScope.launch {
                             if (doctorId.isBlank() || password.isBlank()) {
                                 Toast.makeText(context, "Enter Doctor ID and password", Toast.LENGTH_SHORT).show()
                                 return@launch
@@ -236,7 +252,7 @@ fun DoctorLoginScreen(
                     color = accentBlue,
                     fontSize = 14.sp,
                     modifier = Modifier.clickable {
-                        scope.launch {
+                        coroutineScope.launch {
                             if (doctorId.isBlank()) {
                                 Toast.makeText(
                                     context,

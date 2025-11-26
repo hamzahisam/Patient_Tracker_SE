@@ -5,7 +5,9 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,8 +39,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 
 private const val TAG = "DoctorChatScreen"
@@ -74,6 +79,8 @@ fun DoctorChatScreen(
     // Messages for this conversation
     val messages = remember { mutableStateListOf<DoctorChatMessage>() }
     var inputText by remember { mutableStateOf("") }
+    val scrollState = rememberLazyListState()
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // Load current doctor profile once
     LaunchedEffect(Unit) {
@@ -164,6 +171,13 @@ fun DoctorChatScreen(
         }
     }
 
+    // Auto-scroll to bottom when messages change
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            scrollState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
     // ✅ sendMessage uses same conversationId and checks it's not blank
     fun sendMessage() {
         val dId = doctorId
@@ -227,29 +241,34 @@ fun DoctorChatScreen(
                     titleContentColor = Color(0xFF4CB7C2)
                 )
             )
-        },
-        bottomBar = { DoctorBottomBar(navController, selectedTab = 2) },
-        contentWindowInsets = WindowInsets.systemBars.only(
-            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
-        )
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
                 .background(MaterialTheme.colorScheme.background)
         ) {
             // Messages list
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {
+                            keyboardController?.hide()
+                        })
+                    },
+                state = scrollState,
                 reverseLayout = false
             ) {
                 items(messages) { msg ->
                     MessageRow(msg)
                 }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Input row
             Row(

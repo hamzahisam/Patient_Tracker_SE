@@ -150,7 +150,8 @@ fun DoctorHomeScreen(
 
             DoctorSchedule(
                 gradient = gradient,
-                doctorId = resolvedId
+                doctorId = resolvedId,
+                navController = navController
             )
         }
     }
@@ -168,6 +169,8 @@ private fun DoctorHeader(
     onSearch: () -> Unit,
     onProfile: () -> Unit,
 ) {
+    val accent = Color(0xFF4CB7C2)
+    
     // Time and date formatting state
     val timeFormatter = remember { DateTimeFormatter.ofPattern("hh:mm a") }
     val dateFormatter = remember { DateTimeFormatter.ofPattern("EEE, dd MMM") }
@@ -180,69 +183,94 @@ private fun DoctorHeader(
             delay(60_000)
         }
     }
+    
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            // LEFT: circular icon bubbles
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                IconBubble(iconRes = R.drawable.ic_settings, onClick = onSettings)
-            }
-            Spacer(Modifier.width(12.dp))
+                // Left: Settings icon
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    IconBubble(iconRes = R.drawable.ic_settings, onClick = onSettings)
+                }
 
-            // CENTER: Time and Date
-            Column(
-                modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    currentTimeText,
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF4CB7C2)
-                )
-                Text(
-                    currentDateText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFF4CB7C2).copy(alpha = 0.9f)
-                )
-            }
+                Spacer(Modifier.width(12.dp))
 
-            // RIGHT: greeting + name + avatar
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    greeting,
-                    color = Color(0xFF4CB7C2),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    name,
-                    color = Color(0xFF4CB7C2),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { onProfile() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(initials, color = Color.White, fontWeight = FontWeight.SemiBold)
+                // Center: current time + date
+                Column(
+                    modifier = Modifier
+                        .weight(2f)
+                        .padding(horizontal = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = currentTimeText,
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = accent
+                    )
+                    Text(
+                        text = currentDateText,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = accent.copy(alpha = 0.85f)
+                    )
+                }
+
+                Spacer(Modifier.width(8.dp))
+
+                // Right: greeting + name
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = greeting,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                // Avatar placeholder - clickable to profile
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.background)
+                        .border(
+                            width = 1.dp,
+                            color = accent,
+                            shape = CircleShape
+                        )
+                        .clickable { onProfile() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = initials,
+                        color = accent,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
             }
         }
     }
@@ -250,19 +278,21 @@ private fun DoctorHeader(
 
 @Composable
 private fun IconBubble(@DrawableRes iconRes: Int, onClick: () -> Unit) {
+    val accent = Color(0xFF4CB7C2)
+
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(40.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.background)
-            .border(1.dp, Color(0xFF4CB7C2), CircleShape)
-            .clickable(onClick = onClick),
+            .background(MaterialTheme.colorScheme.surface)
+            .border(width = 1.dp, color = accent, shape = CircleShape)
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Image(
             painter = painterResource(id = iconRes),
             contentDescription = null,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(22.dp)
         )
     }
 }
@@ -296,7 +326,8 @@ private fun generateDateChipsAroundToday(
 @Composable
 private fun DoctorSchedule(
     gradient: Brush,
-    doctorId: String
+    doctorId: String,
+    navController: NavController
 ) {
     val locale = Locale.getDefault()
     val (dates, todayIndex) = remember { generateDateChipsAroundToday(15, 15, locale) }
@@ -308,26 +339,26 @@ private fun DoctorSchedule(
     val db = remember { FirebaseFirestore.getInstance() }
 
     // Header (title + month)
-    Surface(color = Color.Transparent) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(gradient)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Upcoming Schedule",
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-            Text(
-                displayedMonth,
-                color = Color.White.copy(alpha = 0.9f),
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
+    val accent = Color(0xFF4CB7C2)
+    val barColor = MaterialTheme.colorScheme.surface
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(color = barColor)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "Upcoming Schedule",
+            color = accent,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            displayedMonth,
+            color = accent.copy(alpha = 0.85f),
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 
     // Day scroller
@@ -441,7 +472,12 @@ private fun DoctorSchedule(
                 Text(
                     "See all",
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF4CB7C2)
+                    color = Color(0xFF4CB7C2),
+                    modifier = Modifier.clickable {
+                        navController.navigate("doctor_schedule") {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
 
@@ -694,7 +730,7 @@ private fun BottomItem(
         Image(
             painter = painterResource(id = iconRes),
             contentDescription = label,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(30.dp)
         )
         Spacer(Modifier.height(2.dp))
         Text(

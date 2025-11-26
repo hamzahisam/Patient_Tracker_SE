@@ -2,6 +2,7 @@ package com.example.patienttracker.ui.screens.patient
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -35,6 +36,7 @@ fun EnhancedProfileScreen(navController: NavController) {
     val accent = Color(0xFF4CB7C2)
 
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     // Load current user data
     var firstName by remember { mutableStateOf("") }
@@ -144,11 +146,12 @@ fun EnhancedProfileScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
         ) {
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .background(MaterialTheme.colorScheme.background)
             ) {
                 // Profile Picture Section

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Parcelable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +62,15 @@ fun DoctorListScreen(
     var doctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
+    
+    // Get current user ID and load favorites
+    var favoriteDoctorIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    LaunchedEffect(Unit) {
+        val userId = com.example.patienttracker.auth.AuthManager.getCurrentUserProfile()?.humanId
+        if (userId != null) {
+            favoriteDoctorIds = FavoritesManager.getFavorites(context, userId)
+        }
+    }
 
     LaunchedEffect(specialityFilter) {
         loading = true
@@ -126,26 +136,28 @@ fun DoctorListScreen(
 
     // Apply both specialty filter and search filter
     val filtered = remember(doctors, specialityFilter, searchQuery) {
-        var result = doctors
+        derivedStateOf {
+            var result = doctors
 
-        // First apply specialty filter
-        if (!specialityFilter.isNullOrBlank() && specialityFilter != "All") {
-            result = result.filter { it.speciality.contains(specialityFilter, ignoreCase = true) }
-        }
-
-        // Then apply search filter
-        if (searchQuery.isNotBlank()) {
-            result = result.filter { doctor ->
-                val fullName = "Dr. ${doctor.firstName} ${doctor.lastName}"
-                fullName.contains(searchQuery, ignoreCase = true) ||
-//                        doctor.speciality.contains(searchQuery, ignoreCase = true) ||
-                        doctor.firstName.contains(searchQuery, ignoreCase = true) ||
-                        doctor.lastName.contains(searchQuery, ignoreCase = true)
+            // First apply specialty filter
+            if (!specialityFilter.isNullOrBlank() && specialityFilter != "All") {
+                result = result.filter { it.speciality.contains(specialityFilter, ignoreCase = true) }
             }
-        }
 
-        result
-    }
+            // Then apply search filter
+            if (searchQuery.isNotBlank()) {
+                result = result.filter { doctor ->
+                    val fullName = "Dr. ${doctor.firstName} ${doctor.lastName}"
+                    fullName.contains(searchQuery, ignoreCase = true) ||
+//                        doctor.speciality.contains(searchQuery, ignoreCase = true) ||
+                            doctor.firstName.contains(searchQuery, ignoreCase = true) ||
+                            doctor.lastName.contains(searchQuery, ignoreCase = true)
+                }
+            }
+
+            result
+        }
+    }.value
 
     Scaffold(
         topBar = {
@@ -178,6 +190,7 @@ fun DoctorListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
+                .imePadding()
                 .background(MaterialTheme.colorScheme.background) // FIX 1: Changed from hardcoded to theme
         ) {
             // Search Bar
@@ -240,14 +253,27 @@ fun DoctorListScreen(
                         }
                     }
                 } else {
-                    items(filtered) { doc ->
-                        DoctorCard(doc) {
-                            navController.currentBackStackEntry
-                                ?.savedStateHandle
-                                ?.set("selectedDoctor", doc)
+                    items(filtered, key = { it.id }) { doc ->
+                        DoctorCard(
+                            doctor = doc,
+                            isFavorited = doc.id in favoriteDoctorIds,
+                            onFavoriteToggle = {
+                                if (doc.id in favoriteDoctorIds) {
+                                    FavoritesManager.removeFavorite(context, doc.id)
+                                    favoriteDoctorIds = favoriteDoctorIds - doc.id
+                                } else {
+                                    FavoritesManager.addFavorite(context, doc.id)
+                                    favoriteDoctorIds = favoriteDoctorIds + doc.id
+                                }
+                            },
+                            onBookClick = {
+                                navController.currentBackStackEntry
+                                    ?.savedStateHandle
+                                    ?.set("selectedDoctor", doc)
 
-                            navController.navigate("book_appointment")
-                        }
+                                navController.navigate("book_appointment")
+                            }
+                        )
                     }
                 }
             }
@@ -321,12 +347,10 @@ fun SearchBar(
 @Composable
 fun DoctorCard(
     doctor: DoctorFull,
+    isFavorited: Boolean,
+    onFavoriteToggle: () -> Unit,
     onBookClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    var isFavorited by remember { mutableStateOf(FavoritesManager.isFavorite(context, doctor.id)) }
-
     Surface(
         shape = RoundedCornerShape(20.dp),
         tonalElevation = 2.dp,
@@ -370,16 +394,7 @@ fun DoctorCard(
                 
                 // Heart icon for favorites
                 IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            if (isFavorited) {
-                                FavoritesManager.removeFavorite(context, doctor.id)
-                            } else {
-                                FavoritesManager.addFavorite(context, doctor.id)
-                            }
-                            isFavorited = !isFavorited
-                        }
-                    },
+                    onClick = onFavoriteToggle,
                     modifier = Modifier.size(24.dp)
                 ) {
                     Icon(

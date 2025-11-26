@@ -113,10 +113,10 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                           )
                       )
                   }
-                }
+              }
             }
         },
-        bottomBar = { PatientBottomBar(navController) }
+        bottomBar = { PatientBottomBar(navController, selectedTab = 3) }
     ) { inner ->
 
         when {
@@ -368,7 +368,7 @@ fun PastScheduleScreen(navController: NavController, context: Context) {
                 }
             }
         },
-        bottomBar = { PatientBottomBar(navController) }
+        bottomBar = { PatientBottomBar(navController, selectedTab = 3) }
     ) { inner ->
         when {
             isLoading -> {

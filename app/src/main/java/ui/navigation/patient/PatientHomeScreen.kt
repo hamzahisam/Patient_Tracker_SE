@@ -1255,7 +1255,8 @@ private fun parseAppointmentDate(raw: String, locale: Locale): LocalDate? {
 
 @Composable
 fun PatientBottomBar(
-    navController: NavController
+    navController: NavController,
+    selectedTab: Int = 0  // 0 = Home, 1 = Chat, 2 = Profile, 3 = Schedule
 ) {
     // Load current patient name once
     var firstName by remember { mutableStateOf("Patient") }
@@ -1300,7 +1301,7 @@ fun PatientBottomBar(
                 BottomItem(
                     iconRes = R.drawable.ic_home,
                     label = "Home",
-                    selected = true
+                    selected = selectedTab == 0
                 ) {
                     navController.navigate("patient_home/$firstName/$lastName") {
                         popUpTo("patient_home/$firstName/$lastName") { inclusive = true }
@@ -1309,14 +1310,16 @@ fun PatientBottomBar(
 
                 BottomItem(
                     iconRes = R.drawable.ic_messages,
-                    label = "Chat"
+                    label = "Chat",
+                    selected = selectedTab == 1
                 ) {
                     navController.navigate("chat_selection_patient")
                 }
 
                 BottomItem(
                     iconRes = R.drawable.ic_user_profile,
-                    label = "Profile"
+                    label = "Profile",
+                    selected = selectedTab == 2
                 ) {
                     val safeFirst = firstName.ifBlank { "Patient" }
                     val safeLast  = lastName.ifBlank { "" }
@@ -1325,7 +1328,8 @@ fun PatientBottomBar(
 
                 BottomItem(
                     iconRes = R.drawable.ic_booking,
-                    label = "Schedule"
+                    label = "Schedule",
+                    selected = selectedTab == 3
                 ) {
                     navController.navigate("full_schedule")
                 }
