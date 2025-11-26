@@ -219,41 +219,88 @@ fun BookAppointmentScreen(
                                 val formattedDate = selectedDate.format(dateFormatter)
                                 val selectedTiming = selectedTimeState!!
 
-                                // Save locally
-                                AppointmentStorage.saveAppointment(context, doctor, formattedDate, selectedTiming)
-
-                                // Save to Firestore
+                                // Start saving and clear old messages
                                 isSaving = true
                                 message = ""
-                                val appointmentData = hashMapOf(
-                                    "doctorId" to doctor.id,
-                                    "doctorFirstName" to doctor.firstName,
-                                    "doctorLastName" to doctor.lastName,
-                                    "doctorSpeciality" to doctor.speciality,
-                                    "patientId" to currentPatientId,
-                                    "patientFirstName" to (profile?.firstName ?: ""),
-                                    "patientLastName" to (profile?.lastName ?: ""),
-                                    "date" to formattedDate,
-                                    "timing" to selectedTiming,
-                                    "status" to "booked",
-                                    "createdAt" to FieldValue.serverTimestamp()
-                                )
 
+                                // First, check if this patient already has ANY appointment on this day
                                 db.collection("appointments")
-                                    .add(appointmentData)
-                                    .addOnSuccessListener { docRef ->
-                                        Log.d("BookAppointment", "Appointment stored with id=${docRef.id}")
-                                        message = "Appointment booked successfully!"
-                                        isSaving = false
+                                    .whereEqualTo("patientId", currentPatientId)
+                                    .whereEqualTo("date", formattedDate)
+                                    .whereEqualTo("status", "booked")
+                                    .get()
+                                    .addOnSuccessListener { sameDaySnapshot ->
+                                        // Allow up to 2 booked appointments per day for a single patient
+                                        if (sameDaySnapshot.size() >= 2) {
+                                            // Patient already has 2 appointments on this date
+                                            message = "You already have 2 appointments on this day."
+                                            isSaving = false
+                                        } else {
+                                            // Then, check if there is already an appointment at this exact time
+                                            db.collection("appointments")
+                                                .whereEqualTo("patientId", currentPatientId)
+                                                .whereEqualTo("date", formattedDate)
+                                                .whereEqualTo("timing", selectedTiming)
+                                                .get()
+                                                .addOnSuccessListener { existingSnapshot ->
+                                                    if (!existingSnapshot.isEmpty) {
+                                                        // Patient already has an appointment at this time (with any doctor)
+                                                        message = "You already have an appointment at this time."
+                                                        isSaving = false
+                                                    } else {
+                                                        // Safe to book
+                                                        val appointmentData = hashMapOf(
+                                                            "doctorId" to doctor.id,
+                                                            "doctorFirstName" to doctor.firstName,
+                                                            "doctorLastName" to doctor.lastName,
+                                                            "doctorSpeciality" to doctor.speciality,
+                                                            "patientId" to currentPatientId,
+                                                            "patientFirstName" to (profile?.firstName ?: ""),
+                                                            "patientLastName" to (profile?.lastName ?: ""),
+                                                            "date" to formattedDate,
+                                                            "timing" to selectedTiming,
+                                                            "status" to "booked",
+                                                            "createdAt" to FieldValue.serverTimestamp()
+                                                        )
+
+                                                        // Save locally only if Firestore booking is allowed
+                                                        AppointmentStorage.saveAppointment(
+                                                            context,
+                                                            doctor,
+                                                            formattedDate,
+                                                            selectedTiming
+                                                        )
+
+                                                        db.collection("appointments")
+                                                            .add(appointmentData)
+                                                            .addOnSuccessListener { docRef ->
+                                                                Log.d("BookAppointment", "Appointment stored with id=${docRef.id}")
+                                                                message = "Appointment booked successfully!"
+                                                                isSaving = false
+                                                                selectedTimeState = null
+                                                                selectedTime = null
+                                                            }
+                                                            .addOnFailureListener { e ->
+                                                                Log.e("BookAppointment", "Failed to store appointment", e)
+                                                                message = "Failed to book appointment. Please try again."
+                                                                isSaving = false
+                                                            }
+                                                    }
+                                                }
+                                                .addOnFailureListener { e ->
+                                                    Log.e("BookAppointment", "Failed to verify existing appointment time", e)
+                                                    message = "Failed to verify existing appointments. Please try again."
+                                                    isSaving = false
+                                                }
+                                        }
                                     }
                                     .addOnFailureListener { e ->
-                                        Log.e("BookAppointment", "Failed to store appointment", e)
-                                        message = "Failed to book appointment. Please try again."
+                                        Log.e("BookAppointment", "Failed to verify existing same-day appointments", e)
+                                        message = "Failed to verify existing appointments. Please try again."
                                         isSaving = false
                                     }
-
                             },
-                            enabled = selectedTimeState != null && !isSaving,
+                            enabled = selectedTimeState != null && !isSaving && message.isEmpty(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3CC7CD)),
                             shape = RoundedCornerShape(12.dp)
                         ) {
