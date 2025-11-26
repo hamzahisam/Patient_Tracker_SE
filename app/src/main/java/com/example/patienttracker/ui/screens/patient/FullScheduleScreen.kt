@@ -38,6 +38,7 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
     val appointments = remember { mutableStateListOf<Appointment>() }
     val scope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(true) }   // <- NEW
+    var appointmentToCancel by remember { mutableStateOf<Appointment?>(null) }
 
     LaunchedEffect(Unit) {
         try {
@@ -196,10 +197,8 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                                 Button(
                                     onClick = {
                                         if (canCancel) {
-                                            scope.launch {
-                                                UserRepository.cancelAppointment(app)
-                                                appointments.remove(app)
-                                            }
+                                            // Open confirmation dialog for this appointment
+                                            appointmentToCancel = app
                                         }
                                     },
                                     enabled = canCancel,
@@ -214,15 +213,15 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                                     Text(text = "Cancel appointment")
                                 }
 
-                                if (!canCancel) {
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = "Appointment cannot be cancelled if less than 24 hours left",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color(0xFFFF8A80),
-                                        modifier = Modifier.align(Alignment.End)
-                                    )
-                                }
+//                                if (!canCancel) {
+//                                    Spacer(Modifier.height(4.dp))
+//                                    Text(
+//                                        text = "Appointment cannot be cancelled if less than 24 hours left",
+//                                        style = MaterialTheme.typography.bodySmall,
+//                                        color = Color(0xFFFF8A80),
+//                                        modifier = Modifier.align(Alignment.End)
+//                                    )
+//                                }
                             }
                         }
                     }
@@ -230,30 +229,67 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
             }
         }
     }
+    // Confirmation dialog for cancelling an appointment
+    if (appointmentToCancel != null) {
+        val app = appointmentToCancel!!
+
+        AlertDialog(
+            onDismissRequest = { appointmentToCancel = null },
+            title = {
+                Text(text = "Cancel appointment")
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to cancel this appointment with " +
+                        "${app.doctorFirstName} ${app.doctorLastName} on ${app.date} at ${app.timing}?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // Actually cancel the appointment
+                        scope.launch {
+                            UserRepository.cancelAppointment(app)
+                            appointments.remove(app)
+                            appointmentToCancel = null
+                        }
+                    }
+                ) {
+                    Text("Yes, cancel", color = Color(0xFFFF4B4B))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { appointmentToCancel = null }) {
+                    Text("No, keep it")
+                }
+            }
+        )
+    }
 }
 
 private fun canCancelAppointment(app: Appointment): Boolean {
-    return try {
-        // Example date: "Wednesday, 26 Nov 2025"
-        val dateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", Locale.ENGLISH)
-        // Example time: "9:15 AM"
-        val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
-
-        val localDate = LocalDate.parse(app.date, dateFormatter)
-        val localTime = LocalTime.parse(app.timing, timeFormatter)
-
-        val zone = ZoneId.systemDefault()
-        val appointmentDateTime = ZonedDateTime.of(localDate, localTime, zone)
-        val now = ZonedDateTime.now(zone)
-
-        // hours from now to appointment
-        val hoursUntil = Duration.between(now, appointmentDateTime).toHours()
-
-        hoursUntil >= 24       // can cancel only if 24h or more remain
-    } catch (e: Exception) {
-        // If parsing fails, be safe and disallow cancel
-        false
-    }
+//    return try {
+//        // Example date: "Wednesday, 26 Nov 2025"
+//        val dateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", Locale.ENGLISH)
+//        // Example time: "9:15 AM"
+//        val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+//
+//        val localDate = LocalDate.parse(app.date, dateFormatter)
+//        val localTime = LocalTime.parse(app.timing, timeFormatter)
+//
+//        val zone = ZoneId.systemDefault()
+//        val appointmentDateTime = ZonedDateTime.of(localDate, localTime, zone)
+//        val now = ZonedDateTime.now(zone)
+//
+//        // hours from now to appointment
+//        val hoursUntil = Duration.between(now, appointmentDateTime).toHours()
+//
+//        hoursUntil >= 24       // can cancel only if 24h or more remain
+//    } catch (e: Exception) {
+//        // If parsing fails, be safe and disallow cancel
+//        false
+//    }
+    return true
 }
 
 private fun isPastAppointment(app: Appointment): Boolean {

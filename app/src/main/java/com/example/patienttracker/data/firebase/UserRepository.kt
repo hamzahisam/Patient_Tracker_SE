@@ -201,4 +201,20 @@ object UserRepository {
         }
     }
 
+    suspend fun hasUnreadMessagesForPatient(patientId: String): Boolean {
+        return try {
+            val snapshot = db.collection("messages")
+                .whereEqualTo("patientId", patientId)
+                .whereEqualTo("receiverRole", "patient") // adjust if you don't store this
+                .whereEqualTo("isRead", false)          // assumes a boolean "isRead" flag
+                .limit(1)
+                .get()
+                .await()
+
+            !snapshot.isEmpty
+        } catch (e: Exception) {
+            false
+        }
+    }
+
 }
