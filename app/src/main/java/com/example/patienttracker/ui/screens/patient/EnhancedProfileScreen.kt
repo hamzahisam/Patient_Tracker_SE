@@ -27,6 +27,7 @@ import androidx.navigation.NavController
 import com.example.patienttracker.auth.AuthManager
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import com.example.patienttracker.ui.screens.doctor.DoctorBottomBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -140,6 +141,13 @@ fun EnhancedProfileScreen(navController: NavController) {
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
+        },
+        bottomBar = {
+            // Show correct bottom bar based on user role
+            when (role) {
+                "doctor" -> DoctorBottomBar(navController, selectedTab = -1)
+                else -> PatientBottomBar(navController)
+            }
         }
     ) { innerPadding ->
         Column(

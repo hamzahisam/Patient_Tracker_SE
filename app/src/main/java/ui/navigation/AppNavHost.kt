@@ -286,6 +286,12 @@ fun AppNavHost(context: Context) {
             )
         ) { backStackEntry ->
             val doctorKey = backStackEntry.arguments?.getString("doctorKey").orEmpty()
+            
+            // Check if we came from chat
+            val fromChat = navController.previousBackStackEntry?.savedStateHandle?.get<Boolean>("fromChat") ?: false
+            val chatDoctorId = navController.previousBackStackEntry?.savedStateHandle?.get<String>("chatDoctorId") ?: ""
+            val chatPatientId = navController.previousBackStackEntry?.savedStateHandle?.get<String>("chatPatientId") ?: ""
+            val chatConversationId = navController.previousBackStackEntry?.savedStateHandle?.get<String>("chatConversationId") ?: ""
 
             // Patient viewing their own REPORTS (can upload)
             // doctorKey is available if you want to filter by doctor in the screen
@@ -294,7 +300,11 @@ fun AppNavHost(context: Context) {
                 context = context,
                 canUpload = true,
                 patientIdOverride = null,
-                collectionOverride = "records"
+                collectionOverride = "records",
+                fromChat = fromChat,
+                chatDoctorId = chatDoctorId,
+                chatPatientId = chatPatientId,
+                chatConversationId = chatConversationId
             )
         }
 
@@ -372,15 +382,18 @@ fun AppNavHost(context: Context) {
          * DOCTOR chat screen
          * - opened when a DOCTOR selects a patient
          * - patientHumanId = patient.humanId
+         * - patientName = patient's display name
          */
         composable(
-            route = "chat_doctor/{patientHumanId}",
+            route = "chat_doctor/{patientHumanId}/{patientName}",
             arguments = listOf(
-                navArgument("patientHumanId") { type = NavType.StringType }
+                navArgument("patientHumanId") { type = NavType.StringType },
+                navArgument("patientName") { type = NavType.StringType; defaultValue = "" }
             )
         ) { backStackEntry ->
             val patientHumanId = backStackEntry.arguments?.getString("patientHumanId").orEmpty()
-            DoctorChatScreen(navController, context, patientHumanId)
+            val patientName = backStackEntry.arguments?.getString("patientName").orEmpty()
+            DoctorChatScreen(navController, context, patientHumanId, patientName)
         }
 
         composable("settings") {
@@ -465,6 +478,12 @@ fun AppNavHost(context: Context) {
         ) { backStackEntry ->
             val patientId = backStackEntry.arguments?.getString("patientId").orEmpty()
             val patientName = backStackEntry.arguments?.getString("patientName").orEmpty()
+            
+            // Check if we came from chat
+            val fromChat = navController.previousBackStackEntry?.savedStateHandle?.get<Boolean>("fromChat") ?: false
+            val chatDoctorId = navController.previousBackStackEntry?.savedStateHandle?.get<String>("chatDoctorId") ?: ""
+            val chatPatientId = navController.previousBackStackEntry?.savedStateHandle?.get<String>("chatPatientId") ?: ""
+            val chatConversationId = navController.previousBackStackEntry?.savedStateHandle?.get<String>("chatConversationId") ?: ""
 
             PatientReportsScreen(
                 navController = navController,
@@ -474,7 +493,11 @@ fun AppNavHost(context: Context) {
                 collectionOverride = "prescriptions",
                 title = "Prescriptions – $patientName",
                 entitySingular = "prescription / diagnosis",
-                entityPlural = "prescriptions / diagnoses"
+                entityPlural = "prescriptions / diagnoses",
+                fromChat = fromChat,
+                chatDoctorId = chatDoctorId,
+                chatPatientId = chatPatientId,
+                chatConversationId = chatConversationId
             )
         }
 

@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -45,6 +48,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Surface
+import com.example.patienttracker.ui.screens.doctor.DoctorBottomBar
 
 private const val TAG = "DoctorChatScreen"
 
@@ -53,7 +60,14 @@ data class DoctorChatMessage(
     val text: String,
     val timestamp: Date?,
     val isSentByMe: Boolean,
-    val status: String
+    val status: String,
+    // Document upload fields
+    val isDocumentUpload: Boolean = false,
+    val documentName: String = "",
+    val uploadedBy: String = "",
+    val uploadCollection: String = "",
+    val patientId: String = "",
+    val doctorId: String = ""
 )
 
 private fun formatTime(date: Date?): String {
@@ -140,6 +154,14 @@ fun DoctorChatScreen(
 
                         val isSentByMe = senderRole == "doctor"
 
+                        // Document upload metadata
+                        val isDocumentUpload = doc.getBoolean("isDocumentUpload") ?: false
+                        val documentName = doc.getString("documentName") ?: ""
+                        val uploadedBy = doc.getString("uploadedBy") ?: ""
+                        val uploadCollection = doc.getString("uploadCollection") ?: ""
+                        val msgPatientId = doc.getString("patientId") ?: ""
+                        val msgDoctorId = doc.getString("doctorId") ?: ""
+
                         // 1) Messages sent by the doctor: once they appear in this snapshot, they are at least DELIVERED.
                         if (isSentByMe && status == "SENT") {
                             doc.reference.update("status", "DELIVERED")
@@ -157,7 +179,13 @@ fun DoctorChatScreen(
                             text = text,
                             timestamp = ts.toDate(),
                             isSentByMe = isSentByMe,
-                            status = status
+                            status = status,
+                            isDocumentUpload = isDocumentUpload,
+                            documentName = documentName,
+                            uploadedBy = uploadedBy,
+                            uploadCollection = uploadCollection,
+                            patientId = msgPatientId,
+                            doctorId = msgDoctorId
                         )
                     }
 
@@ -241,6 +269,9 @@ fun DoctorChatScreen(
                     titleContentColor = Color(0xFF4CB7C2)
                 )
             )
+        },
+        bottomBar = {
+            DoctorBottomBar(navController, selectedTab = 1) // Chat tab
         }
     ) { innerPadding ->
         Column(
@@ -264,7 +295,12 @@ fun DoctorChatScreen(
                 reverseLayout = false
             ) {
                 items(messages) { msg ->
-                    MessageRow(msg)
+                    MessageRow(
+                        message = msg,
+                        navController = navController,
+                        patientId = patientId,
+                        patientName = patientName
+                    )
                 }
             }
 
@@ -277,6 +313,32 @@ fun DoctorChatScreen(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Upload button - navigates to Prescriptions screen for doctors
+                IconButton(
+                    onClick = {
+                        val dId = doctorId
+                        if (!dId.isNullOrBlank() && patientId.isNotBlank()) {
+                            // Set flag to indicate we came from chat
+                            navController.currentBackStackEntry?.savedStateHandle?.set("fromChat", true)
+                            navController.currentBackStackEntry?.savedStateHandle?.set("chatDoctorId", dId)
+                            navController.currentBackStackEntry?.savedStateHandle?.set("chatPatientId", patientId)
+                            navController.currentBackStackEntry?.savedStateHandle?.set("chatConversationId", conversationId)
+                            // Navigate to doctor prescriptions screen
+                            navController.navigate("doctor_patient_prescriptions_screen/$patientId/$patientName")
+                        }
+                    },
+                    enabled = !doctorId.isNullOrBlank() && patientId.isNotBlank()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AttachFile,
+                        contentDescription = "Upload prescription",
+                        tint = if (!doctorId.isNullOrBlank() && patientId.isNotBlank())
+                            Color(0xFF4CB7C2)
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
                 BasicTextField(
                     value = inputText,
                     onValueChange = { inputText = it },
@@ -324,7 +386,12 @@ fun DoctorChatScreen(
 }
 
 @Composable
-private fun MessageRow(message: DoctorChatMessage) {
+private fun MessageRow(
+    message: DoctorChatMessage,
+    navController: NavController,
+    patientId: String,
+    patientName: String
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -366,15 +433,59 @@ private fun MessageRow(message: DoctorChatMessage) {
                     )
                     .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
-                Text(
-                    text = message.text,
-                    color = if (message.isSentByMe) {
-                        Color.White
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Column {
+                    Text(
+                        text = message.text,
+                        color = if (message.isSentByMe) {
+                            Color.White
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    // If this is a document upload message, show a clickable "View Document" button
+                    if (message.isDocumentUpload && message.documentName.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            modifier = Modifier
+                                .clickable {
+                                    // Navigate based on who uploaded
+                                    // Doctor is viewing - currentUserRole is "doctor"
+                                    if (message.uploadCollection == "prescriptions") {
+                                        // Prescription uploaded by doctor (themselves)
+                                        val encodedName = java.net.URLEncoder.encode(patientName.ifBlank { "Patient" }, "UTF-8")
+                                        navController.navigate("doctor_patient_prescriptions_screen/${patientId}/$encodedName")
+                                    } else {
+                                        // Report uploaded by patient
+                                        val encodedName = java.net.URLEncoder.encode(patientName.ifBlank { "Patient" }, "UTF-8")
+                                        navController.navigate("doctor_patient_reports_screen/${patientId}/$encodedName")
+                                    }
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (message.isSentByMe) Color.White.copy(alpha = 0.2f) else Color(0xFF4CB7C2).copy(alpha = 0.15f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AttachFile,
+                                    contentDescription = "View document",
+                                    tint = if (message.isSentByMe) Color.White else Color(0xFF4CB7C2),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "View Document",
+                                    color = if (message.isSentByMe) Color.White else Color(0xFF4CB7C2),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Time + read receipts BELOW the bubble

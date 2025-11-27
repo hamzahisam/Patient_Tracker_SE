@@ -2,6 +2,7 @@ package com.example.patienttracker.ui.screens.doctor
 
 import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -230,7 +231,8 @@ fun DoctorChatInboxScreen(
                                 conversation = conv,
                                 onClick = {
                                     // For doctor, ChatScreen expects the OTHER party id → patientHumanId
-                                    navController.navigate("chat_doctor/${conv.patientId}")
+                                    val encodedName = java.net.URLEncoder.encode(conv.patientName.ifBlank { "Patient" }, "UTF-8")
+                                    navController.navigate("chat_doctor/${conv.patientId}/$encodedName")
                                 }
                             )
                         }
@@ -247,57 +249,43 @@ private fun PatientChatRow(
     onClick: () -> Unit
 ) {
     Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp
+            .border(
+                width = 1.dp,
+                color = Color(0xFF4CB7C2),
+                shape = MaterialTheme.shapes.medium
+            )
+            .clickable { onClick() }
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            // Circle with initials
-            val initials = conversation.patientName
-                .split(" ")
-                .filter { it.isNotBlank() }
-                .take(2)
-                .joinToString("") { it.first().uppercase() }
-
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(Color(0xFFE0F2F8), shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
+            Text(
+                text = conversation.patientName,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (conversation.lastMessage.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = initials,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF14597A)
+                    text = conversation.lastMessage,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
                 )
             }
-
-            Spacer(Modifier.width(12.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = conversation.patientName,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (conversation.lastMessage.isNotBlank()) {
-                    Text(
-                        text = conversation.lastMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
-            }
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "ID: ${conversation.patientId}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

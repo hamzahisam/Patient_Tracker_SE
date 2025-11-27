@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.*
@@ -47,13 +48,21 @@ import com.example.patienttracker.data.firebase.UserRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.example.patienttracker.ui.screens.patient.PatientBottomBar
 
 data class ChatMessage(
     val id: String,
     val text: String,
     val timestamp: Date,
     val isSentByMe: Boolean,
-    val status: MessageStatus = MessageStatus.SENT
+    val status: MessageStatus = MessageStatus.SENT,
+    // Document upload fields
+    val isDocumentUpload: Boolean = false,
+    val documentName: String = "",
+    val uploadedBy: String = "",
+    val uploadCollection: String = "",
+    val patientId: String = "",
+    val doctorId: String = ""
 )
 
 enum class MessageStatus {
@@ -144,6 +153,14 @@ fun ChatScreen(
 
                         val isSentByMe = (senderRole == currentUserRole)
 
+                        // Document upload metadata
+                        val isDocumentUpload = doc.getBoolean("isDocumentUpload") ?: false
+                        val documentName = doc.getString("documentName") ?: ""
+                        val uploadedBy = doc.getString("uploadedBy") ?: ""
+                        val uploadCollection = doc.getString("uploadCollection") ?: ""
+                        val msgPatientId = doc.getString("patientId") ?: ""
+                        val msgDoctorId = doc.getString("doctorId") ?: ""
+
                         // 1) Messages I sent: if they are still SENT, mark them as DELIVERED (two grey ticks).
                         if (isSentByMe && status == MessageStatus.SENT) {
                             doc.reference.update("status", MessageStatus.DELIVERED.name)
@@ -162,7 +179,13 @@ fun ChatScreen(
                                 text = text,
                                 timestamp = ts,
                                 isSentByMe = isSentByMe,
-                                status = status
+                                status = status,
+                                isDocumentUpload = isDocumentUpload,
+                                documentName = documentName,
+                                uploadedBy = uploadedBy,
+                                uploadCollection = uploadCollection,
+                                patientId = msgPatientId,
+                                doctorId = msgDoctorId
                             )
                         )
                     }
@@ -225,6 +248,9 @@ fun ChatScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            PatientBottomBar(navController)
         }
     ) { innerPadding ->
         Column(
@@ -244,7 +270,11 @@ fun ChatScreen(
                 contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
             ) {
                 items(chatMessages) { message ->
-                    ChatMessageBubble(message)
+                    ChatMessageBubble(
+                        message = message,
+                        navController = navController,
+                        currentUserRole = currentUserRole
+                    )
                 }
             }
 
@@ -255,6 +285,28 @@ fun ChatScreen(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Upload button - navigates to Reports screen for patients
+                IconButton(
+                    onClick = {
+                        // Navigate to patient reports screen with doctorId as key
+                        // Set flag to indicate we came from chat
+                        navController.currentBackStackEntry?.savedStateHandle?.set("fromChat", true)
+                        navController.currentBackStackEntry?.savedStateHandle?.set("chatDoctorId", doctorId)
+                        navController.currentBackStackEntry?.savedStateHandle?.set("chatPatientId", patientId)
+                        navController.currentBackStackEntry?.savedStateHandle?.set("chatConversationId", conversationId)
+                        navController.navigate("patient_reports_screen/$doctorId")
+                    },
+                    enabled = patientId.isNotEmpty()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AttachFile,
+                        contentDescription = "Upload document",
+                        tint = if (patientId.isNotEmpty())
+                            Color(0xFF4CB7C2)
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 // Message input field
                 BasicTextField(
@@ -331,7 +383,11 @@ fun ChatScreen(
 }
 
 @Composable
-fun ChatMessageBubble(message: ChatMessage) {
+fun ChatMessageBubble(
+    message: ChatMessage,
+    navController: NavController,
+    currentUserRole: String
+) {
     val isMyMessage = message.isSentByMe
     val timeFormatter = remember {
         SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -376,11 +432,64 @@ fun ChatMessageBubble(message: ChatMessage) {
                     )
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                Text(
-                    text = message.text,
-                    color = if (isMyMessage) Color.White else MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Column {
+                    Text(
+                        text = message.text,
+                        color = if (isMyMessage) Color.White else MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    // If this is a document upload message, show a clickable "View Document" button
+                    if (message.isDocumentUpload && message.documentName.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            modifier = Modifier
+                                .clickable {
+                                    // Navigate based on who uploaded and current user role
+                                    if (message.uploadCollection == "prescriptions") {
+                                        // Prescription uploaded by doctor
+                                        if (currentUserRole == "patient") {
+                                            // Patient viewing doctor's prescription
+                                            navController.navigate("patient_prescriptions_screen/${message.doctorId}")
+                                        } else {
+                                            // Doctor viewing their own prescription
+                                            navController.navigate("doctor_patient_prescriptions_screen/${message.patientId}/Patient")
+                                        }
+                                    } else {
+                                        // Report uploaded by patient
+                                        if (currentUserRole == "patient") {
+                                            // Patient viewing their own report
+                                            navController.navigate("patient_reports_screen/${message.doctorId}")
+                                        } else {
+                                            // Doctor viewing patient's report
+                                            navController.navigate("doctor_patient_reports_screen/${message.patientId}/Patient")
+                                        }
+                                    }
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isMyMessage) Color.White.copy(alpha = 0.2f) else Color(0xFF4CB7C2).copy(alpha = 0.15f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AttachFile,
+                                    contentDescription = "View document",
+                                    tint = if (isMyMessage) Color.White else Color(0xFF4CB7C2),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "View Document",
+                                    color = if (isMyMessage) Color.White else Color(0xFF4CB7C2),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Message status and timestamp

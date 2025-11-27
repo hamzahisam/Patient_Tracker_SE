@@ -31,6 +31,7 @@ import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import com.example.patienttracker.auth.AuthManager
 import androidx.compose.material3.MaterialTheme
+import com.example.patienttracker.ui.screens.doctor.DoctorBottomBar
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.Blob
 import com.google.firebase.firestore.FieldValue
@@ -51,6 +52,42 @@ data class MedicalRecord(
     val data: ByteArray? = null
 ) : Serializable
 
+// Helper function to send automatic chat message when document is uploaded
+private fun sendDocumentUploadMessage(
+    db: FirebaseFirestore,
+    conversationId: String,
+    senderId: String,
+    senderRole: String,
+    doctorId: String,
+    patientId: String,
+    documentName: String
+) {
+    if (conversationId.isBlank()) return
+    
+    // Determine the collection based on who uploaded
+    val uploadCollection = if (senderRole == "doctor") "prescriptions" else "records"
+    
+    val msgData = hashMapOf(
+        "text" to "I have uploaded a new document: $documentName",
+        "senderId" to senderId,
+        "senderRole" to senderRole,
+        "doctorId" to doctorId,
+        "patientId" to patientId,
+        "timestamp" to Timestamp.now(),
+        "status" to "SENT",
+        // Document upload metadata for clickable link
+        "isDocumentUpload" to true,
+        "documentName" to documentName,
+        "uploadedBy" to senderRole,
+        "uploadCollection" to uploadCollection
+    )
+
+    db.collection("conversations")
+        .document(conversationId)
+        .collection("messages")
+        .add(msgData)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientReportsScreen(
@@ -61,7 +98,12 @@ fun PatientReportsScreen(
     collectionOverride: String? = null,
     title: String = "My Medical Records",
     entitySingular: String = "record",
-    entityPlural: String = "records"
+    entityPlural: String = "records",
+    // Chat integration parameters
+    fromChat: Boolean = false,
+    chatDoctorId: String = "",
+    chatPatientId: String = "",
+    chatConversationId: String = ""
 ) {
     val db = remember { FirebaseFirestore.getInstance() }
     val collection = collectionOverride ?: "records"
@@ -179,12 +221,26 @@ fun PatientReportsScreen(
         db.collection(collection)
             .add(recordMap)
             .addOnSuccessListener {
-
                 Toast.makeText(
                     context,
                     "${entitySingular.replaceFirstChar { it.uppercase() }} saved!",
                     Toast.LENGTH_SHORT
                 ).show()
+                
+                // If we came from chat, send automatic message
+                if (fromChat && chatConversationId.isNotBlank()) {
+                    val senderRole = currentRole ?: "patient"
+                    val senderId = if (senderRole == "doctor") chatDoctorId else chatPatientId
+                    sendDocumentUploadMessage(
+                        db = db,
+                        conversationId = chatConversationId,
+                        senderId = senderId,
+                        senderRole = senderRole,
+                        doctorId = chatDoctorId,
+                        patientId = chatPatientId,
+                        documentName = fileName
+                    )
+                }
             }
             .addOnFailureListener { e ->
                 Toast.makeText(context, "Failed to save ${entitySingular}: ${e.message}", Toast.LENGTH_LONG).show()
@@ -217,7 +273,11 @@ fun PatientReportsScreen(
             )
         },
         bottomBar = {
-            PatientBottomBar(navController = navController)
+            // Show correct bottom bar based on user role
+            when (currentRole) {
+                "doctor" -> DoctorBottomBar(navController, selectedTab = 2) // Patients tab
+                else -> PatientBottomBar(navController)
+            }
         }
     ) { innerPadding ->
         Box(

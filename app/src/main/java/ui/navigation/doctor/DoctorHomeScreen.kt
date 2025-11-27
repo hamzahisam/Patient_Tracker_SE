@@ -452,6 +452,11 @@ private fun DoctorSchedule(
             }
     }
 
+    // Format the selected date for display
+    val selectedDate = dates[selected].date
+    val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, MMM dd", locale)
+    val displayDate = selectedDate.format(dateFormatter)
+
     Surface(
         modifier = Modifier
             .padding(horizontal = 16.dp),
@@ -459,29 +464,31 @@ private fun DoctorSchedule(
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Appointments",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    "See all",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF4CB7C2),
-                    modifier = Modifier.clickable {
-                        navController.navigate("doctor_schedule") {
-                            launchSingleTop = true
+            // Only show header with date when there are appointments
+            if (appointmentsForDay.isNotEmpty() && !apptLoading && apptError == null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Appointments for $displayDate",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color(0xFF2A6C74)
+                    )
+                    Text(
+                        "See all",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color(0xFF4CB7C2),
+                        modifier = Modifier.clickable {
+                            navController.navigate("doctor_schedule") {
+                                launchSingleTop = true
+                            }
                         }
-                    }
-                )
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
             }
-
-            Spacer(Modifier.height(8.dp))
 
             when {
                 apptLoading -> {
@@ -507,21 +514,58 @@ private fun DoctorSchedule(
                 }
 
                 appointmentsForDay.isEmpty() -> {
-                    Text(
-                        "No appointments for this day.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "No appointments for $displayDate",
+                            color = Color(0xFF2A6C74),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Click on other dates to check appointments",
+                            color = Color(0xFF6AA8B0),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
 
                 else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(appointmentsForDay) { item ->
-                            AppointmentCard(item = item)
+                        appointmentsForDay.forEach { item ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val primaryTextColor = MaterialTheme.colorScheme.onSurface
+                                val accentColor = Color(0xFF4CB7C2)
+
+                                // Time
+                                Text(
+                                    text = item.time,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = primaryTextColor
+                                )
+
+                                Spacer(Modifier.width(12.dp))
+
+                                // Patient name with reason
+                                Text(
+                                    text = "Patient • ${item.patientName}",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = accentColor
+                                )
+                            }
                         }
                     }
                 }
@@ -579,44 +623,6 @@ private fun sampleAppointmentsFor(date: LocalDate): List<Appointment> {
     }
 }
 
-@Composable
-private fun AppointmentCard(item: Appointment) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(16.dp),
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    item.time,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    item.reason,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF4CB7C2)
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-            Divider(color = Color.White.copy(alpha = 0.15f))
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Patient • ${item.patientName}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
 // ---------- Bottom bar ----------
 @Composable
 fun DoctorBottomBar(
@@ -655,9 +661,13 @@ fun DoctorBottomBar(
                     selected = selectedTab == 0,
                     onClick = {
                         if (selectedTab != 0) {
-                            navController.navigate("doctor_home") {
-                                launchSingleTop = true
-                                popUpTo("doctor_home") { inclusive = false }
+                            // Find and pop back to doctor_home
+                            val popped = navController.popBackStack("doctor_home/{firstName}/{lastName}/{doctorId}", inclusive = false)
+                            if (!popped) {
+                                // Fallback: just pop until we can't anymore or navigate fresh
+                                navController.navigate("doctor_home") {
+                                    popUpTo(0) { inclusive = true }
+                                }
                             }
                         }
                     }
@@ -670,20 +680,18 @@ fun DoctorBottomBar(
                         if (selectedTab != 1) {
                             navController.navigate("doctor_chat_inbox") {
                                 launchSingleTop = true
-                                popUpTo("doctor_home") { inclusive = false }
                             }
                         }
                     }
                 )
                 BottomItem(
-                    iconRes = R.drawable.ic_user_profile,
-                    label = "Patients",
+                    iconRes = R.drawable.ic_record,
+                    label = "Records",
                     selected = selectedTab == 2,
                     onClick = {
                         if (selectedTab != 2) {
                             navController.navigate("doctor_patients") {
                                 launchSingleTop = true
-                                popUpTo("doctor_home") { inclusive = false }
                             }
                         }
                     }
@@ -696,7 +704,6 @@ fun DoctorBottomBar(
                         if (selectedTab != 3) {
                             navController.navigate("doctor_schedule") {
                                 launchSingleTop = true
-                                popUpTo("doctor_home") { inclusive = false }
                             }
                         }
                     }
@@ -736,7 +743,7 @@ private fun BottomItem(
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
-            color = if (selected) MaterialTheme.colorScheme.primary else Color(0xFF5F6970)
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
