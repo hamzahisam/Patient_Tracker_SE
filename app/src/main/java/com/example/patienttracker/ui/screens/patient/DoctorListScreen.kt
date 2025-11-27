@@ -13,6 +13,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +52,7 @@ data class DoctorFull(
     val timings: String    // human-readable, e.g. "6:00 pm – 9:00 pm"
 ) : Parcelable
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorListScreen(
     navController: NavController,
@@ -62,6 +65,12 @@ fun DoctorListScreen(
     var doctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
+    
+    // Day and Time filter state
+    var selectedDay by remember { mutableStateOf<String?>(null) } // Day name like "Mon", "Tue", etc.
+    var selectedTime by remember { mutableStateOf<Int?>(null) } // Time in HHmm format (e.g., 1400 for 2:00 PM)
+    var showDayPicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
     
     // Get current user ID and load favorites
     var favoriteDoctorIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -134,8 +143,8 @@ fun DoctorListScreen(
             }
     }
 
-    // Apply both specialty filter and search filter
-    val filtered = remember(doctors, specialityFilter, searchQuery) {
+    // Apply specialty, search, day, and time filters
+    val filtered = remember(doctors, specialityFilter, searchQuery, selectedDay, selectedTime) {
         derivedStateOf {
             var result = doctors
 
@@ -152,6 +161,21 @@ fun DoctorListScreen(
 //                        doctor.speciality.contains(searchQuery, ignoreCase = true) ||
                             doctor.firstName.contains(searchQuery, ignoreCase = true) ||
                             doctor.lastName.contains(searchQuery, ignoreCase = true)
+                }
+            }
+            
+            // Apply day filter
+            if (selectedDay != null) {
+                result = result.filter { doctor ->
+                    doctor.days.contains(selectedDay!!, ignoreCase = true)
+                }
+            }
+            
+            // Apply time filter
+            if (selectedTime != null) {
+                result = result.filter { doctor ->
+                    // Parse the timings string to check if selected time is within range
+                    isDoctorAvailableAtTime(doctor.timings, selectedTime!!)
                 }
             }
 
@@ -193,14 +217,96 @@ fun DoctorListScreen(
                 .imePadding()
                 .background(MaterialTheme.colorScheme.background) // FIX 1: Changed from hardcoded to theme
         ) {
-            // Search Bar
-            SearchBar(
-                searchQuery = searchQuery,
-                onSearchQueryChanged = { searchQuery = it },
+            // Search Bar with Date and Time filters
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            )
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SearchBar(
+                    searchQuery = searchQuery,
+                    onSearchQueryChanged = { searchQuery = it },
+                    modifier = Modifier.weight(1f)
+                )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // Date filter button
+                FilterIconButton(
+                    icon = Icons.Default.CalendarToday,
+                    isActive = selectedDay != null,
+                    contentDescription = "Filter by day",
+                    onClick = { showDayPicker = true }
+                )
+                
+                Spacer(modifier = Modifier.width(4.dp))
+                
+                // Time filter button
+                FilterIconButton(
+                    icon = Icons.Default.Schedule,
+                    isActive = selectedTime != null,
+                    contentDescription = "Filter by time",
+                    onClick = { showTimePicker = true }
+                )
+            }
+            
+            // Show active filters
+            if (selectedDay != null || selectedTime != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (selectedDay != null) {
+                        val fullDayName = when (selectedDay) {
+                            "Mon" -> "Monday"
+                            "Tue" -> "Tuesday"
+                            "Wed" -> "Wednesday"
+                            "Thu" -> "Thursday"
+                            "Fri" -> "Friday"
+                            "Sat" -> "Saturday"
+                            "Sun" -> "Sunday"
+                            else -> selectedDay!!
+                        }
+                        FilterChip(
+                            selected = true,
+                            onClick = { selectedDay = null },
+                            label = { Text(fullDayName) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Clear,
+                                    contentDescription = "Clear day filter",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF4CB7C2).copy(alpha = 0.2f),
+                                selectedLabelColor = Color(0xFF4CB7C2)
+                            )
+                        )
+                    }
+                    if (selectedTime != null) {
+                        FilterChip(
+                            selected = true,
+                            onClick = { selectedTime = null },
+                            label = { Text(formatTimeHHmm(selectedTime!!)) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Clear,
+                                    contentDescription = "Clear time filter",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFF4CB7C2).copy(alpha = 0.2f),
+                                selectedLabelColor = Color(0xFF4CB7C2)
+                            )
+                        )
+                    }
+                }
+            }
 
             LazyColumn(
                 modifier = Modifier
@@ -279,6 +385,106 @@ fun DoctorListScreen(
             }
         }
     }
+    
+    // Day Picker Dialog
+    if (showDayPicker) {
+        val days = listOf(
+            "Mon" to "Monday",
+            "Tue" to "Tuesday",
+            "Wed" to "Wednesday",
+            "Thu" to "Thursday",
+            "Fri" to "Friday",
+            "Sat" to "Saturday",
+            "Sun" to "Sunday"
+        )
+        
+        AlertDialog(
+            onDismissRequest = { showDayPicker = false },
+            title = { Text("Select Day") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    days.forEach { (shortName, fullName) ->
+                        Surface(
+                            onClick = {
+                                selectedDay = shortName
+                                showDayPicker = false
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (selectedDay == shortName) 
+                                Color(0xFF4CB7C2).copy(alpha = 0.2f) 
+                            else 
+                                MaterialTheme.colorScheme.surface,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = fullName,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                color = if (selectedDay == shortName) 
+                                    Color(0xFF4CB7C2) 
+                                else 
+                                    MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDayPicker = false }) {
+                    Text("Cancel", color = Color(0xFF4CB7C2))
+                }
+            }
+        )
+    }
+    
+    // Time Picker Dialog
+    if (showTimePicker) {
+        val currentHour = selectedTime?.let { it / 100 } ?: 12
+        val currentMinute = selectedTime?.let { it % 100 } ?: 0
+        val timePickerState = rememberTimePickerState(
+            initialHour = currentHour,
+            initialMinute = currentMinute,
+            is24Hour = false
+        )
+        
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedTime = timePickerState.hour * 100 + timePickerState.minute
+                        showTimePicker = false
+                    }
+                ) {
+                    Text("OK", color = Color(0xFF4CB7C2))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) {
+                    Text("Cancel", color = Color(0xFF4CB7C2))
+                }
+            },
+            title = { Text("Select Time") },
+            text = {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TimePicker(
+                        state = timePickerState,
+                        colors = TimePickerDefaults.colors(
+                            selectorColor = Color(0xFF4CB7C2),
+                            timeSelectorSelectedContainerColor = Color(0xFF4CB7C2),
+                            timeSelectorSelectedContentColor = Color.White
+                        )
+                    )
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -342,6 +548,90 @@ fun SearchBar(
         ),
         shape = RoundedCornerShape(16.dp)
     )
+}
+
+@Composable
+fun FilterIconButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isActive: Boolean,
+    contentDescription: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isActive) Color(0xFF4CB7C2).copy(alpha = 0.2f) else MaterialTheme.colorScheme.background,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = if (isActive) Color(0xFF4CB7C2) else Color(0xFFB9E3E7)
+        ),
+        modifier = Modifier.size(48.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (isActive) Color(0xFF4CB7C2) else Color(0xFF8DC2C8),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Check if a doctor is available at a specific time based on their timings string
+ * Timings format: "6:00 pm – 9:00 pm"
+ */
+private fun isDoctorAvailableAtTime(timings: String, selectedTime: Int): Boolean {
+    if (timings.isBlank()) return false
+    
+    try {
+        // Parse the timings string (e.g., "6:00 pm – 9:00 pm")
+        val parts = timings.split("–", "-").map { it.trim() }
+        if (parts.size != 2) return false
+        
+        val startTime = parseTimeToHHmm(parts[0])
+        val endTime = parseTimeToHHmm(parts[1])
+        
+        if (startTime == null || endTime == null) return false
+        
+        return selectedTime in startTime..endTime
+    } catch (e: Exception) {
+        return false
+    }
+}
+
+/**
+ * Parse time string like "6:00 pm" to HHmm format (1800)
+ */
+private fun parseTimeToHHmm(timeStr: String): Int? {
+    try {
+        val cleaned = timeStr.trim().lowercase()
+        val isPm = cleaned.contains("pm")
+        val isAm = cleaned.contains("am")
+        
+        val timePart = cleaned.replace("am", "").replace("pm", "").trim()
+        val colonParts = timePart.split(":")
+        
+        if (colonParts.isEmpty()) return null
+        
+        var hours = colonParts[0].trim().toIntOrNull() ?: return null
+        val minutes = if (colonParts.size > 1) colonParts[1].trim().toIntOrNull() ?: 0 else 0
+        
+        // Convert to 24-hour format
+        if (isPm && hours != 12) {
+            hours += 12
+        } else if (isAm && hours == 12) {
+            hours = 0
+        }
+        
+        return hours * 100 + minutes
+    } catch (e: Exception) {
+        return null
+    }
 }
 
 @Composable

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import ui.screens.patient.PatientReportsScreen
+import java.net.URLDecoder
 
 @Composable
 fun DoctorPatientReportsScreen(
@@ -12,11 +13,12 @@ fun DoctorPatientReportsScreen(
     patientName: String
 ) {
     val context = LocalContext.current
+    val decodedPatientName = URLDecoder.decode(patientName, "UTF-8")
     PatientReportsScreen(
         navController = navController,
         context = context,
         patientIdOverride = patientId,
         canUpload = false,
-        title = "Records – $patientName"
+        title = "Records – $decodedPatientName"
     )
 }
