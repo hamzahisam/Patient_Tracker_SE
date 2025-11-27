@@ -104,17 +104,15 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
 
             CategoriesRow(
                 items = listOf(
-                    Category("Favorite", R.drawable.ic_favourites),
                     Category("Doctors", R.drawable.ic_doctors),
-                    Category("Specialties", R.drawable.ic_specialties),
-                    Category("Record", R.drawable.ic_records),
+                    Category("Favorite", R.drawable.ic_favourites),
+                    Category("Specialties", R.drawable.ic_specialties)
                 ),
                 onCategoryClick = { category ->
                     when (category.label) {
-                        "Favorite" -> navController.navigate("favorites_screen") // ADD THIS LINE
+                        "Favorite" -> navController.navigate("favorites_screen")
                         "Doctors" -> navController.navigate("doctor_list/All")
                         "Specialties" -> navController.navigate("patient_specialties")
-                        "Record" -> navController.navigate("record_doctor_list")
                     }
                 }
             )
@@ -332,7 +330,7 @@ private fun RowScope.CategoryChip(
             painter = painterResource(id = cat.iconRes),
             contentDescription = cat.label,
             modifier = Modifier
-                .size(if (cat.label == "Doctors") 48.dp else if (cat.label == "Favourite") 60.dp else if (cat.label == "Specialties") 66.dp else 58.dp)
+                .size(if (cat.label == "Doctors") 48.dp else if (cat.label == "Favorite") 60.dp else 66.dp)
                 .padding(top = 4.dp),
             contentScale = ContentScale.Fit
         )
@@ -656,10 +654,12 @@ private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
+            val today = LocalDate.now()
             items(dates.size) { i ->
                 DayPill(
-                    dates[i],
+                    item = dates[i],
                     selected = (i == selected),
+                    isToday = dates[i].date == today,
                     onClick = {
                         selected = i
                         displayedMonth = monthLabel(dates[i].date, locale)
@@ -704,25 +704,21 @@ private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
 data class DayChip(val date: LocalDate, val day: String, val dow: String)
 
 @Composable
-private fun DayPill(item: DayChip, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) Color(0xFF4CCAD1) else MaterialTheme.colorScheme.surface
-    val fg = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
+private fun DayPill(item: DayChip, selected: Boolean, isToday: Boolean = false, onClick: () -> Unit) {
+    val bg = if (selected) Color(0xFF4CCAD1) else Color.Transparent
+    val borderColor = when {
+        selected -> Color(0xFF4CCAD1)
+        isToday -> Color(0xFF2E9E6E) // Green border for today
+        else -> Color(0xFF4CB7C2)
+    }
+    val borderWidth = if (isToday && !selected) 2.dp else 1.dp
+    val fg = if (selected) Color.White else Color(0xFF4CB7C2)
     Column(
         modifier = Modifier
             .width(72.dp)
             .clip(RoundedCornerShape(28.dp))
-            .then(
-                if (!selected) {
-                    Modifier.border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
-                        shape = RoundedCornerShape(28.dp)
-                    )
-                } else {
-                    Modifier
-                }
-            )
             .background(bg)
+            .border(borderWidth, borderColor, RoundedCornerShape(28.dp))
             .clickable { onClick() }
             .padding(vertical = 10.dp)
     ) {
@@ -1256,7 +1252,7 @@ private fun parseAppointmentDate(raw: String, locale: Locale): LocalDate? {
 @Composable
 fun PatientBottomBar(
     navController: NavController,
-    selectedTab: Int = 0  // 0 = Home, 1 = Chat, 2 = Profile, 3 = Schedule
+    selectedTab: Int = 0  // 0 = Home, 1 = Chat, 2 = Records, 3 = Schedule
 ) {
     // Load current patient name once
     var firstName by remember { mutableStateOf("Patient") }
@@ -1317,13 +1313,11 @@ fun PatientBottomBar(
                 }
 
                 BottomItem(
-                    iconRes = R.drawable.ic_user_profile,
-                    label = "Profile",
+                    iconRes = R.drawable.ic_record,
+                    label = "Records",
                     selected = selectedTab == 2
                 ) {
-                    val safeFirst = firstName.ifBlank { "Patient" }
-                    val safeLast  = lastName.ifBlank { "" }
-                    navController.navigate("patient_profile/$safeFirst/$safeLast")
+                    navController.navigate("record_doctor_list")
                 }
 
                 BottomItem(

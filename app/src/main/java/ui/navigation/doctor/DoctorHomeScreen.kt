@@ -383,10 +383,12 @@ private fun DoctorSchedule(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
+        val today = LocalDate.now()
         items(dates.size) { i ->
             DayPill(
                 chip = dates[i],
                 selected = i == selected,
+                isToday = dates[i].date == today,
                 onClick = {
                     selected = i
                     displayedMonth = monthLabel(dates[i].date, locale)
@@ -575,12 +577,17 @@ private fun DoctorSchedule(
 }
 
 @Composable
-private fun DayPill(chip: DayChip, selected: Boolean, onClick: () -> Unit) {
+private fun DayPill(chip: DayChip, selected: Boolean, isToday: Boolean = false, onClick: () -> Unit) {
     val bg by animateColorAsState(
         if (selected) Color(0xFF4FC2C9) else Color.Transparent,
         label = "pill-bg"
     )
-    val borderColor = if (selected) Color(0xFF4FC2C9) else Color(0xFF4CB7C2)
+    val borderColor = when {
+        selected -> Color(0xFF4FC2C9)
+        isToday -> Color(0xFF2E9E6E) // Green border for today
+        else -> Color(0xFF4CB7C2)
+    }
+    val borderWidth = if (isToday && !selected) 2.dp else 1.dp
     val fg = if (selected) Color.White else Color(0xFF4CB7C2)
 
     Column(
@@ -588,7 +595,7 @@ private fun DayPill(chip: DayChip, selected: Boolean, onClick: () -> Unit) {
             .width(86.dp)
             .clip(RoundedCornerShape(40.dp))
             .background(bg)
-            .border(1.dp, borderColor, RoundedCornerShape(40.dp))
+            .border(borderWidth, borderColor, RoundedCornerShape(40.dp))
             .clickable { onClick() }
             .padding(vertical = 10.dp),
         verticalArrangement = Arrangement.Center,

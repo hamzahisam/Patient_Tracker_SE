@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -131,6 +132,16 @@ fun FavoritesScreen(navController: NavController) {
                             } else {
                                 ""
                             }
+                            
+                            // Get fees - handle both string and number formats
+                            val fees = when (val feesRaw = doc.get("fees")) {
+                                is String -> feesRaw
+                                is Long -> "Rs. $feesRaw"
+                                is Double -> "Rs. ${feesRaw.toInt()}"
+                                else -> ""
+                            }
+                            
+                            val clinicAddress = doc.getString("clinicAddress") ?: ""
 
                             doctorsList.add(
                                 DoctorFull(
@@ -141,7 +152,9 @@ fun FavoritesScreen(navController: NavController) {
                                     phone = phone,
                                     speciality = speciality,
                                     days = daysDisplay,
-                                    timings = timingsDisplay
+                                    timings = timingsDisplay,
+                                    fees = fees,
+                                    clinicAddress = clinicAddress
                                 )
                             )
                         }
@@ -253,6 +266,32 @@ fun FavoriteDoctorCard(
                             "Timings: ${doctor.timings}",
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                         )
+                    }
+                    if (doctor.fees.isNotBlank()) {
+                        Text(
+                            "Fees: ${doctor.fees}",
+                            color = Color(0xFF4CB7C2),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                    }
+                    if (doctor.clinicAddress.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = "Location",
+                                tint = Color(0xFF8DC2C8),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = doctor.clinicAddress,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
                 

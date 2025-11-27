@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,7 +51,9 @@ data class DoctorFull(
     val phone: String,
     val speciality: String,
     val days: String,      // human-readable, e.g. "Mon, Wed, Fri"
-    val timings: String    // human-readable, e.g. "6:00 pm – 9:00 pm"
+    val timings: String,   // human-readable, e.g. "6:00 pm – 9:00 pm"
+    val fees: String,      // e.g. "Rs. 500" or "500"
+    val clinicAddress: String  // e.g. "123 Medical Plaza, Karachi"
 ) : Parcelable
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,6 +69,16 @@ fun DoctorListScreen(
     var doctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
+    
+    // LazyColumn state for auto-scroll
+    val listState = rememberLazyListState()
+    
+    // Auto-scroll to top when search query changes
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank()) {
+            listState.animateScrollToItem(0)
+        }
+    }
     
     // Day and Time filter state
     var selectedDay by remember { mutableStateOf<String?>(null) } // Day name like "Mon", "Tue", etc.
@@ -122,6 +136,16 @@ fun DoctorListScreen(
                     } else {
                         ""
                     }
+                    
+                    // Get fees - handle both string and number formats
+                    val fees = when (val feesRaw = doc.get("fees")) {
+                        is String -> feesRaw
+                        is Long -> "Rs. $feesRaw"
+                        is Double -> "Rs. ${feesRaw.toInt()}"
+                        else -> ""
+                    }
+                    
+                    val clinicAddress = doc.getString("clinicAddress") ?: ""
 
                     DoctorFull(
                         id = id,
@@ -131,7 +155,9 @@ fun DoctorListScreen(
                         phone = phone,
                         speciality = speciality,
                         days = daysDisplay,
-                        timings = timingsDisplay
+                        timings = timingsDisplay,
+                        fees = fees,
+                        clinicAddress = clinicAddress
                     )
                 }
                 doctors = list
@@ -153,14 +179,15 @@ fun DoctorListScreen(
                 result = result.filter { it.speciality.contains(specialityFilter, ignoreCase = true) }
             }
 
-            // Then apply search filter
+            // Then apply search filter (searches name, clinic address, and speciality)
             if (searchQuery.isNotBlank()) {
                 result = result.filter { doctor ->
                     val fullName = "Dr. ${doctor.firstName} ${doctor.lastName}"
                     fullName.contains(searchQuery, ignoreCase = true) ||
-//                        doctor.speciality.contains(searchQuery, ignoreCase = true) ||
                             doctor.firstName.contains(searchQuery, ignoreCase = true) ||
-                            doctor.lastName.contains(searchQuery, ignoreCase = true)
+                            doctor.lastName.contains(searchQuery, ignoreCase = true) ||
+                            doctor.clinicAddress.contains(searchQuery, ignoreCase = true) ||
+                            doctor.speciality.contains(searchQuery, ignoreCase = true)
                 }
             }
             
@@ -309,6 +336,7 @@ fun DoctorListScreen(
             }
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background), // FIX 2: Changed from hardcoded to theme
@@ -503,7 +531,7 @@ fun SearchBar(
             .height(56.dp),
         placeholder = {
             Text(
-                "Search doctors by name... ",
+                "Search name, speciality, location...",
                 color = Color(0xFF8DC2C8)
             )
         },
@@ -679,6 +707,32 @@ fun DoctorCard(
                             "Timings: ${doctor.timings}",
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                         )
+                    }
+                    if (doctor.fees.isNotBlank()) {
+                        Text(
+                            "Fees: ${doctor.fees}",
+                            color = Color(0xFF4CB7C2),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                    }
+                    if (doctor.clinicAddress.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = "Location",
+                                tint = Color(0xFF8DC2C8),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = doctor.clinicAddress,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
                 
