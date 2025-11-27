@@ -18,6 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
@@ -247,6 +250,94 @@ fun PatientReportsScreen(
             }
     }
 
+    // ---------- Helper function to upload from URI ----------
+    fun uploadFromUri(uri: Uri, isCamera: Boolean = false) {
+        val pid = patientId
+        if (pid.isNullOrBlank()) {
+            Toast.makeText(context, "Missing patient ID", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val cr = context.contentResolver
+        val fileName = if (isCamera) {
+            "photo_${System.currentTimeMillis()}.jpg"
+        } else {
+            queryDisplayName(cr, uri) ?: "record_${System.currentTimeMillis()}"
+        }
+        val mimeType = cr.getType(uri) ?: "image/jpeg"
+
+        val inputStream = cr.openInputStream(uri)
+        val bytes = inputStream?.readBytes()
+        inputStream?.close()
+
+        if (bytes == null) {
+            Toast.makeText(context, "Cannot read selected file.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val recordMap = hashMapOf(
+            "patientId" to pid,
+            "title" to fileName,
+            "fileName" to fileName,
+            "mimeType" to mimeType,
+            "data" to Blob.fromBytes(bytes),
+            "createdAt" to FieldValue.serverTimestamp()
+        )
+
+        db.collection(collection)
+            .add(recordMap)
+            .addOnSuccessListener {
+                Toast.makeText(
+                    context,
+                    "${entitySingular.replaceFirstChar { it.uppercase() }} saved!",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                if (fromChat && chatConversationId.isNotBlank()) {
+                    val senderRole = currentRole ?: "patient"
+                    val senderId = if (senderRole == "doctor") chatDoctorId else chatPatientId
+                    sendDocumentUploadMessage(
+                        db = db,
+                        conversationId = chatConversationId,
+                        senderId = senderId,
+                        senderRole = senderRole,
+                        doctorId = chatDoctorId,
+                        patientId = chatPatientId,
+                        documentName = fileName
+                    )
+                }
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(context, "Failed to save ${entitySingular}: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+    }
+
+    // ---------- Photo picker launcher ----------
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            uploadFromUri(uri, isCamera = false)
+        }
+    }
+
+    // ---------- Camera launcher ----------
+    val cameraImageUri = remember {
+        FileProvider.getUriForFile(
+            context,
+            context.packageName + ".provider",
+            File(context.cacheDir, "camera_photo_${System.currentTimeMillis()}.jpg")
+        )
+    }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success) {
+            uploadFromUri(cameraImageUri, isCamera = true)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -318,14 +409,63 @@ fun PatientReportsScreen(
 
                         if (effectiveCanUpload) {
                             Spacer(Modifier.height(16.dp))
-                            Button(
-                                onClick = {
-                                    pickFileLauncher.launch(
-                                        arrayOf("application/pdf", "image/*")
+                            
+                            var showUploadMenu by remember { mutableStateOf(false) }
+                            
+                            Box {
+                                Button(
+                                    onClick = { showUploadMenu = true }
+                                ) {
+                                    Text("Upload ${entitySingular.replaceFirstChar { it.uppercase() }}")
+                                }
+                                
+                                DropdownMenu(
+                                    expanded = showUploadMenu,
+                                    onDismissRequest = { showUploadMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Camera") },
+                                        onClick = {
+                                            showUploadMenu = false
+                                            takePictureLauncher.launch(cameraImageUri)
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.CameraAlt,
+                                                contentDescription = "Camera",
+                                                tint = Color(0xFF4CB7C2)
+                                            )
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Photos") },
+                                        onClick = {
+                                            showUploadMenu = false
+                                            pickImageLauncher.launch("image/*")
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Photo,
+                                                contentDescription = "Photos",
+                                                tint = Color(0xFF4CB7C2)
+                                            )
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Files") },
+                                        onClick = {
+                                            showUploadMenu = false
+                                            pickFileLauncher.launch(arrayOf("application/pdf", "image/*"))
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.InsertDriveFile,
+                                                contentDescription = "Files",
+                                                tint = Color(0xFF4CB7C2)
+                                            )
+                                        }
                                     )
                                 }
-                            ) {
-                                Text("Upload ${entitySingular.replaceFirstChar { it.uppercase() }} (PDF / Image)")
                             }
                         }
                     }
@@ -338,17 +478,67 @@ fun PatientReportsScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         if (effectiveCanUpload) {
-                            Button(
-                                onClick = {
-                                    pickFileLauncher.launch(
-                                        arrayOf("application/pdf", "image/*")
-                                    )
-                                },
+                            var showUploadMenu by remember { mutableStateOf(false) }
+                            
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(bottom = 16.dp)
                             ) {
-                                Text("Add New ${entitySingular.replaceFirstChar { it.uppercase() }}")
+                                Button(
+                                    onClick = { showUploadMenu = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Add New ${entitySingular.replaceFirstChar { it.uppercase() }}")
+                                }
+                                
+                                DropdownMenu(
+                                    expanded = showUploadMenu,
+                                    onDismissRequest = { showUploadMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Camera") },
+                                        onClick = {
+                                            showUploadMenu = false
+                                            takePictureLauncher.launch(cameraImageUri)
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.CameraAlt,
+                                                contentDescription = "Camera",
+                                                tint = Color(0xFF4CB7C2)
+                                            )
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Photos") },
+                                        onClick = {
+                                            showUploadMenu = false
+                                            pickImageLauncher.launch("image/*")
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Photo,
+                                                contentDescription = "Photos",
+                                                tint = Color(0xFF4CB7C2)
+                                            )
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Files") },
+                                        onClick = {
+                                            showUploadMenu = false
+                                            pickFileLauncher.launch(arrayOf("application/pdf", "image/*"))
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.InsertDriveFile,
+                                                contentDescription = "Files",
+                                                tint = Color(0xFF4CB7C2)
+                                            )
+                                        }
+                                    )
+                                }
                             }
                         }
 

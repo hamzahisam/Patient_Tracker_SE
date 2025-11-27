@@ -21,6 +21,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,8 +51,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Surface
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import com.example.patienttracker.ui.screens.doctor.DoctorBottomBar
 
 private const val TAG = "DoctorChatScreen"
@@ -240,10 +247,18 @@ fun DoctorChatScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            val decodedName = try {
+                java.net.URLDecoder.decode(patientName, "UTF-8")
+            } catch (e: Exception) {
+                patientName
+            }
+            val displayName = if (decodedName.isNotBlank()) decodedName else "Patient"
+            
+            CenterAlignedTopAppBar(
                 title = {
-                    val displayName = if (patientName.isNotBlank()) patientName else "Patient"
-                    Column {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text(
                             text = displayName,
                             fontWeight = FontWeight.SemiBold,
@@ -263,7 +278,7 @@ fun DoctorChatScreen(
                         modifier = Modifier
                     )
                 },
-                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     navigationIconContentColor = Color(0xFF4CB7C2),
                     titleContentColor = Color(0xFF4CB7C2)
@@ -318,12 +333,10 @@ fun DoctorChatScreen(
                     onClick = {
                         val dId = doctorId
                         if (!dId.isNullOrBlank() && patientId.isNotBlank()) {
-                            // Set flag to indicate we came from chat
                             navController.currentBackStackEntry?.savedStateHandle?.set("fromChat", true)
                             navController.currentBackStackEntry?.savedStateHandle?.set("chatDoctorId", dId)
                             navController.currentBackStackEntry?.savedStateHandle?.set("chatPatientId", patientId)
                             navController.currentBackStackEntry?.savedStateHandle?.set("chatConversationId", conversationId)
-                            // Navigate to doctor prescriptions screen
                             navController.navigate("doctor_patient_prescriptions_screen/$patientId/$patientName")
                         }
                     },

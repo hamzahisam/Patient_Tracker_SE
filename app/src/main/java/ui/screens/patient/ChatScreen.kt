@@ -21,6 +21,9 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.*
@@ -288,8 +291,6 @@ fun ChatScreen(
                 // Upload button - navigates to Reports screen for patients
                 IconButton(
                     onClick = {
-                        // Navigate to patient reports screen with doctorId as key
-                        // Set flag to indicate we came from chat
                         navController.currentBackStackEntry?.savedStateHandle?.set("fromChat", true)
                         navController.currentBackStackEntry?.savedStateHandle?.set("chatDoctorId", doctorId)
                         navController.currentBackStackEntry?.savedStateHandle?.set("chatPatientId", patientId)
@@ -315,13 +316,15 @@ fun ChatScreen(
                     cursorBrush = SolidColor(Color(0xFF4CB7C2)),
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(25.dp))
+                        .background(
+                            color = MaterialTheme.colorScheme.background,
+                            shape = RoundedCornerShape(25.dp)
+                        )
                         .border(
                             width = 1.dp,
                             color = Color(0xFF4CB7C2),
                             shape = RoundedCornerShape(25.dp)
                         )
-                        .background(MaterialTheme.colorScheme.surface)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     textStyle = TextStyle(
                         color = MaterialTheme.colorScheme.onSurface,
@@ -392,9 +395,18 @@ fun ChatMessageBubble(
     val timeFormatter = remember {
         SimpleDateFormat("HH:mm", Locale.getDefault())
     }
+    
+    val bubbleShape = RoundedCornerShape(18.dp)
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = if (isMyMessage) 80.dp else 0.dp,
+                end = if (isMyMessage) 0.dp else 80.dp,
+                top = 6.dp,
+                bottom = 6.dp
+            ),
         horizontalArrangement = if (isMyMessage) Arrangement.End else Arrangement.Start
     ) {
         Column(
@@ -402,35 +414,26 @@ fun ChatMessageBubble(
         ) {
             Box(
                 modifier = Modifier
-                    .clip(
-                        RoundedCornerShape(
-                            topStart = 16.dp,
-                            topEnd = 16.dp,
-                            bottomStart = if (isMyMessage) 16.dp else 4.dp,
-                            bottomEnd = if (isMyMessage) 4.dp else 16.dp
-                        )
+                    .background(
+                        color = if (isMyMessage) {
+                            Color(0xFF0EA5B8) // sent messages: solid teal bubble
+                        } else {
+                            MaterialTheme.colorScheme.background // incoming messages: dark background
+                        },
+                        shape = bubbleShape
                     )
                     .then(
                         if (!isMyMessage) {
                             Modifier.border(
                                 width = 1.dp,
-                                color = Color(0xFF4CB7C2),
-                                shape = RoundedCornerShape(
-                                    topStart = 16.dp,
-                                    topEnd = 16.dp,
-                                    bottomStart = if (isMyMessage) 16.dp else 4.dp,
-                                    bottomEnd = if (isMyMessage) 4.dp else 16.dp
-                                )
+                                color = Color(0xFF4CB7C2), // teal border for received messages
+                                shape = bubbleShape
                             )
                         } else {
                             Modifier
                         }
                     )
-                    .background(
-                        if (isMyMessage) Color(0xFF4CB7C2)
-                        else MaterialTheme.colorScheme.surface
-                    )
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 Column {
                     Text(
@@ -492,32 +495,40 @@ fun ChatMessageBubble(
                 }
             }
 
-            // Message status and timestamp
+            // Time + read receipts BELOW the bubble (matching doctor chat style)
+            Spacer(Modifier.height(2.dp))
+            
+            val ticks = if (isMyMessage) {
+                when (message.status) {
+                    MessageStatus.SENT -> "✓"
+                    MessageStatus.DELIVERED, MessageStatus.READ -> "✓✓"
+                }
+            } else {
+                ""
+            }
+            
+            val tickColor = if (isMyMessage && message.status == MessageStatus.READ) {
+                Color(0xFF4CB7C2) // teal when read
+            } else {
+                Color.LightGray
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isMyMessage) {
-                    Text(
-                        text = when (message.status) {
-                            MessageStatus.SENT -> "✓"
-                            MessageStatus.DELIVERED -> "✓✓"
-                            MessageStatus.READ -> "✓✓"
-                        },
-                        color = when (message.status) {
-                            MessageStatus.SENT -> MaterialTheme.colorScheme.onSurfaceVariant
-                            MessageStatus.DELIVERED -> MaterialTheme.colorScheme.onSurfaceVariant
-                            MessageStatus.READ -> MaterialTheme.colorScheme.primary
-                        },
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
-                }
-
                 Text(
                     text = timeFormatter.format(message.timestamp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp
+                    color = if (isMyMessage) Color(0xFFE0F7FA) else Color.Gray,
+                    style = MaterialTheme.typography.labelSmall
                 )
+                if (ticks.isNotEmpty()) {
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = ticks,
+                        color = tickColor,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
         }
     }
