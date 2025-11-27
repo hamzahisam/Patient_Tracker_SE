@@ -6,8 +6,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.example.patienttracker.R
 
 data class LanguageOption(
     val code: String,
@@ -31,7 +33,7 @@ fun LanguageDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Select Language")
+            Text(stringResource(R.string.select_language))
         },
         text = {
             Column {
@@ -74,12 +76,12 @@ fun LanguageDialog(
                     onDismiss()
                 }
             ) {
-                Text("Confirm")
+                Text(stringResource(R.string.confirm))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

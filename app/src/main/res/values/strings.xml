@@ -13,4 +13,9 @@
     <string name="cancel">Cancel</string>
     <string name="english">English</string>
     <string name="urdu">Urdu</string>
+    
+    <!-- Google Sign-In Web Client ID (will be auto-populated from google-services.json) -->
+    <!-- After adding SHA1 to Firebase, re-download google-services.json -->
+    <!-- Then replace this with the client_id from oauth_client section -->
+    <string name="default_web_client_id">YOUR_WEB_CLIENT_ID</string>
 </resources>

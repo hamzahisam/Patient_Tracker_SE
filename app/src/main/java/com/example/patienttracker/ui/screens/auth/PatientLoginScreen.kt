@@ -1,7 +1,12 @@
 package com.example.patienttracker.ui.screens.auth
 
+import android.app.Activity
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -15,6 +20,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -26,12 +33,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.example.patienttracker.ui.screens.auth.model.AppUser
+import com.example.patienttracker.R
 
 @Composable
 fun PatientLoginScreen(
@@ -45,6 +57,79 @@ fun PatientLoginScreen(
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val keyboardController = LocalSoftwareKeyboardController.current
+    
+    // Google Sign-In setup
+    val googleSignInClient = remember {
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(context.getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        GoogleSignIn.getClient(context, gso)
+    }
+    
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                scope.launch {
+                    isLoading = true
+                    try {
+                        val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+                        val authResult = Firebase.auth.signInWithCredential(credential).await()
+                        val user = authResult.user ?: throw IllegalStateException("Auth failed")
+                        
+                        // Check if user exists in Firestore
+                        val existingProfile = fetchUserProfile(user.uid)
+                        
+                        if (existingProfile != null) {
+                            // User exists - check if they're a patient
+                            if (existingProfile.role != "patient") {
+                                Firebase.auth.signOut()
+                                googleSignInClient.signOut()
+                                throw IllegalStateException("This account is registered as a doctor. Please use doctor login.")
+                            }
+                            // Navigate to home
+                            navController.navigate("patient_home/\${existingProfile.firstName}/\${existingProfile.lastName}") {
+                                popUpTo("patient_login") { inclusive = true }
+                            }
+                        } else {
+                            // New user - create patient profile
+                            val names = user.displayName?.split(" ") ?: listOf("Patient")
+                            val firstName = names.firstOrNull() ?: "Patient"
+                            val lastName = if (names.size > 1) names.drop(1).joinToString(" ") else ""
+                            val humanId = generateNextPatientId()
+                            
+                            val profileData = hashMapOf(
+                                "firstName" to firstName,
+                                "lastName" to lastName,
+                                "email" to (user.email ?: ""),
+                                "role" to "patient",
+                                "humanId" to humanId,
+                                "authProvider" to "google"
+                            )
+                            
+                            Firebase.firestore.collection("users").document(user.uid)
+                                .set(profileData).await()
+                            
+                            Toast.makeText(context, "Account created successfully!", Toast.LENGTH_SHORT).show()
+                            navController.navigate("patient_home/\$firstName/\$lastName") {
+                                popUpTo("patient_login") { inclusive = true }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, e.message ?: "Google sign-in failed", Toast.LENGTH_SHORT).show()
+                    } finally {
+                        isLoading = false
+                    }
+                }
+            } catch (e: ApiException) {
+                Toast.makeText(context, "Google sign-in cancelled", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -264,6 +349,102 @@ fun PatientLoginScreen(
                     },
                     textAlign = TextAlign.Center
                 )
+                
+                Spacer(Modifier.height(24.dp))
+                
+                // Divider with "OR"
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Divider(
+                        modifier = Modifier.weight(1f),
+                        color = Color(0xFF4CB7C2).copy(alpha = 0.5f)
+                    )
+                    Text(
+                        text = "  OR  ",
+                        color = Color(0xFF9CA3AF),
+                        fontSize = 14.sp
+                    )
+                    Divider(
+                        modifier = Modifier.weight(1f),
+                        color = Color(0xFF4CB7C2).copy(alpha = 0.5f)
+                    )
+                }
+                
+                Spacer(Modifier.height(24.dp))
+                
+                // Google Sign-In Button
+                OutlinedButton(
+                    onClick = {
+                        // Sign out first to allow account selection
+                        googleSignInClient.signOut().addOnCompleteListener {
+                            val signInIntent = googleSignInClient.signInIntent
+                            googleSignInLauncher.launch(signInIntent)
+                        }
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFF4CB7C2)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent
+                    )
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_google),
+                            contentDescription = "Google",
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = "Continue with Google",
+                            color = Color.White,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+                
+                Spacer(Modifier.height(12.dp))
+                
+                // Facebook Login Button (Placeholder)
+                OutlinedButton(
+                    onClick = {
+                        Toast.makeText(context, "Facebook Login coming soon!", Toast.LENGTH_SHORT).show()
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFF1877F2)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent
+                    )
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_facebook),
+                            contentDescription = "Facebook",
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = "Continue with Facebook",
+                            color = Color.White,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
             }
 
             if (isLoading) {
@@ -312,4 +493,18 @@ private suspend fun fetchUserProfile(uid: String): AppUser? {
         email = d.getString("email") ?: "",
         humanId = d.getString("humanId") ?: ""
     )
+}
+
+private suspend fun generateNextPatientId(): String {
+    val db = Firebase.firestore
+    val snap = db.collection("users")
+        .whereEqualTo("role", "patient")
+        .get()
+        .await()
+    
+    val maxId = snap.documents.mapNotNull { doc ->
+        doc.getString("humanId")?.toIntOrNull()
+    }.maxOrNull() ?: 0
+    
+    return String.format("%06d", maxId + 1)
 }

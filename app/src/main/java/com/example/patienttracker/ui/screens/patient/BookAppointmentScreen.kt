@@ -63,7 +63,8 @@ fun BookAppointmentScreen(
     var patientProfile by remember { mutableStateOf<UserProfile?>(null) }
     LaunchedEffect(Unit) {
         try {
-            patientProfile = AuthManager.getCurrentUserProfile()
+            val profile = AuthManager.getCurrentUserProfile()
+            patientProfile = profile
         } catch (e: Exception) {
             Log.e("BookAppointment", "Failed to load patient profile", e)
         }

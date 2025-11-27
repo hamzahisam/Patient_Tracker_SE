@@ -17,10 +17,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.patienttracker.R
 import com.example.patienttracker.data.ThemeManager
 import com.example.patienttracker.data.LanguageManager
 import com.example.patienttracker.ui.components.LanguageDialog
@@ -47,7 +49,7 @@ fun SettingsScreen(navController: NavController) {
             TopAppBar(
                 title = {
                     Text(
-                        "Settings",
+                        stringResource(R.string.settings),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
@@ -56,7 +58,7 @@ fun SettingsScreen(navController: NavController) {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.back),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -79,8 +81,8 @@ fun SettingsScreen(navController: NavController) {
             
             // Account Settings
             SettingsItem(
-                title = "Account Settings",
-                subtitle = "Manage your profile information",
+                title = stringResource(R.string.account_settings),
+                subtitle = stringResource(R.string.manage_profile),
                 icon = Icons.Default.Person,
                 onClick = {
                     navController.navigate("enhanced_profile")
@@ -91,8 +93,8 @@ fun SettingsScreen(navController: NavController) {
 
             // Theme Settings
             ThemeSettingsItem(
-                title = "Theme",
-                subtitle = if (themeState.isDarkMode) "Dark mode" else "Light mode",
+                title = stringResource(R.string.theme),
+                subtitle = if (themeState.isDarkMode) stringResource(R.string.dark_mode) else stringResource(R.string.light_mode),
                 isDarkMode = themeState.isDarkMode,
                 onThemeToggle = {
                     val newDarkMode = !themeState.isDarkMode
@@ -105,7 +107,7 @@ fun SettingsScreen(navController: NavController) {
 
             // Language Settings
             LanguageSettingsItem(
-                title = "Language",
+                title = stringResource(R.string.language),
                 subtitle = currentLanguageName,
                 onLanguageClick = {
                     showLanguageDialog = true

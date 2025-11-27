@@ -186,7 +186,9 @@ fun AppNavHost(context: Context) {
                         launchSingleTop = true
                         restoreState = true
                     }
-                }
+                },
+                navController = navController,
+                context = context
             )
         }
 
