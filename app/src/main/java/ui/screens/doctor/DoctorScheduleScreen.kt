@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -44,6 +44,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
@@ -83,8 +84,7 @@ private fun parseStartMinutes(time: String): Int {
 data class DoctorScheduleItem(
     val dateLabel: String,
     val time: String,
-    val patientName: String,
-    val status: String
+    val patientName: String
 )
 
 @Composable
@@ -107,6 +107,7 @@ fun DoctorScheduleScreen(navController: NavController) {
             }
 
             val today = LocalDate.now()
+            val currentMinutes = LocalTime.now().let { it.hour * 60 + it.minute }
 
             // Load all appointments for this doctor
             val snapshot = db.collection("appointments")
@@ -118,12 +119,20 @@ fun DoctorScheduleScreen(navController: NavController) {
                 val dateLabel = doc.getString("date") ?: return@mapNotNull null
                 val appointmentDate = parseDateLabel(dateLabel) ?: return@mapNotNull null
 
-                // Only include upcoming appointments (today and future)
-                if (appointmentDate.isBefore(today)) return@mapNotNull null
-
                 val time = doc.getString("timing")
                     ?: doc.getString("time")
                     ?: ""
+
+                // Only include upcoming appointments:
+                // - Future dates, OR
+                // - Today but time hasn't passed yet
+                val appointmentMinutes = parseStartMinutes(time)
+                val isPast = when {
+                    appointmentDate.isBefore(today) -> true
+                    appointmentDate.isEqual(today) && appointmentMinutes < currentMinutes -> true
+                    else -> false
+                }
+                if (isPast) return@mapNotNull null
 
                 val first = doc.getString("patientFirstName") ?: ""
                 val last = doc.getString("patientLastName") ?: ""
@@ -137,8 +146,7 @@ fun DoctorScheduleScreen(navController: NavController) {
                 DoctorScheduleItem(
                     dateLabel = dateLabel,
                     time = time,
-                    patientName = patientName,
-                    status = status
+                    patientName = patientName
                 )
             }
                 .sortedWith(
@@ -239,31 +247,15 @@ fun DoctorScheduleScreen(navController: NavController) {
                 }
 
                 else -> {
-                    // Group by date label
-                    val grouped = items.groupBy { it.dateLabel }
-
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
+                            .background(MaterialTheme.colorScheme.background),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        grouped.forEach { (dateLabel, dayItems) ->
-                            item(key = "header_$dateLabel") {
-                                Text(
-                                    text = dateLabel,
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    color = Color(ACCENT_HEX),
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                )
-                            }
-
-                            items(dayItems) { appt ->
-                                ScheduleCard(appt)
-                            }
+                        items(items) { appt ->
+                            ScheduleCard(appt)
                         }
                     }
                 }
@@ -277,34 +269,29 @@ private fun ScheduleCard(item: DoctorScheduleItem) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = item.time.ifBlank { "Time not set" },
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = item.status,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color(ACCENT_HEX)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-            Divider(color = Color.White.copy(alpha = 0.15f))
-            Spacer(modifier = Modifier.height(6.dp))
-
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Date header
             Text(
-                text = "Patient • ${item.patientName}",
-                style = MaterialTheme.typography.bodyMedium,
+                text = item.dateLabel,
+                color = Color(ACCENT_HEX),
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            
+            // Time
+            Text(
+                text = item.time.ifBlank { "Time not set" },
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            // Patient name
+            Text(
+                text = item.patientName,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
             )
         }
     }
@@ -330,6 +317,7 @@ fun DoctorPastScheduleScreen(navController: NavController) {
             }
 
             val today = LocalDate.now()
+            val currentMinutes = LocalTime.now().let { it.hour * 60 + it.minute }
 
             // Load all appointments for this doctor
             val snapshot = db.collection("appointments")
@@ -341,12 +329,20 @@ fun DoctorPastScheduleScreen(navController: NavController) {
                 val dateLabel = doc.getString("date") ?: return@mapNotNull null
                 val appointmentDate = parseDateLabel(dateLabel) ?: return@mapNotNull null
 
-                // Only include past appointments
-                if (!appointmentDate.isBefore(today)) return@mapNotNull null
-
                 val time = doc.getString("timing")
                     ?: doc.getString("time")
                     ?: ""
+
+                // Only include past appointments:
+                // - Past dates, OR
+                // - Today but time has already passed
+                val appointmentMinutes = parseStartMinutes(time)
+                val isPast = when {
+                    appointmentDate.isBefore(today) -> true
+                    appointmentDate.isEqual(today) && appointmentMinutes <= currentMinutes -> true
+                    else -> false
+                }
+                if (!isPast) return@mapNotNull null
 
                 val first = doc.getString("patientFirstName") ?: ""
                 val last = doc.getString("patientLastName") ?: ""
@@ -361,7 +357,6 @@ fun DoctorPastScheduleScreen(navController: NavController) {
                     dateLabel = dateLabel,
                     time = time,
                     patientName = patientName,
-                    status = status
                 )
             }
                 .sortedWith(
@@ -440,31 +435,15 @@ fun DoctorPastScheduleScreen(navController: NavController) {
                 }
 
                 else -> {
-                    // Group by date label
-                    val grouped = items.groupBy { it.dateLabel }
-
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
+                            .background(MaterialTheme.colorScheme.background),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        grouped.forEach { (dateLabel, dayItems) ->
-                            item(key = "header_$dateLabel") {
-                                Text(
-                                    text = dateLabel,
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    color = Color(ACCENT_HEX),
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                )
-                            }
-
-                            items(dayItems) { appt ->
-                                ScheduleCard(appt)
-                            }
+                        items(items) { appt ->
+                            ScheduleCard(appt)
                         }
                     }
                 }

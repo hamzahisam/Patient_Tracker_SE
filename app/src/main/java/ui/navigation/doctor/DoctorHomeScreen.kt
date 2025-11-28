@@ -59,9 +59,73 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import androidx.compose.material3.CircularProgressIndicator
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import kotlin.text.format
+
+// Helper function to parse the start time in minutes from strings like "6:00 pm – 9:00 pm"
+private fun parseAppointmentStartMinutes(time: String): Int {
+    val firstPart = time.split("–", "-").firstOrNull()?.trim() ?: return Int.MAX_VALUE
+    val pieces = firstPart.split(" ")
+    if (pieces.isEmpty()) return Int.MAX_VALUE
+
+    val timePart = pieces[0]
+    val amPm = pieces.getOrNull(1)?.lowercase(Locale.getDefault()) ?: "am"
+
+    val hm = timePart.split(":")
+    val hour12 = hm.getOrNull(0)?.toIntOrNull() ?: return Int.MAX_VALUE
+    val minute = hm.getOrNull(1)?.toIntOrNull() ?: 0
+
+    var hour24 = hour12 % 12
+    if (amPm == "pm") {
+        hour24 += 12
+    }
+    return hour24 * 60 + minute
+}
+
+// Helper function to parse appointment date strings like "Friday, 28 Nov 2025" into LocalDate
+private fun parseAppointmentDateLabel(raw: String, locale: Locale): LocalDate? {
+    val cleaned = raw.trim()
+        .substringBefore(" at")
+        .substringBefore(" @")
+        .substringBefore("|")
+        .substringBefore(" -")
+        .trim()
+
+    val patterns = listOf(
+        "EEEE, dd MMM yyyy",
+        "EEE, dd MMM yyyy",
+        "EEEE, dd MMMM yyyy",
+        "EEE, dd MMMM yyyy"
+    )
+
+    for (pattern in patterns) {
+        try {
+            val formatter = DateTimeFormatter.ofPattern(pattern, locale)
+            return LocalDate.parse(cleaned, formatter)
+        } catch (_: DateTimeParseException) {
+            // try next pattern
+        }
+    }
+    return null
+}
+
+/**
+ * Checks if an appointment is in the past based on date and time.
+ * For today's appointments, compares the time. For other days, only compares the date.
+ */
+private fun isAppointmentPastDoctor(apptDate: LocalDate?, timing: String, today: LocalDate, currentMinutes: Int): Boolean {
+    if (apptDate == null) return false
+    return when {
+        apptDate.isBefore(today) -> true
+        apptDate.isEqual(today) -> {
+            val apptMinutes = parseAppointmentStartMinutes(timing)
+            apptMinutes < currentMinutes
+        }
+        else -> false
+    }
+}
 
 // ---------- Public entry ----------
 @OptIn(ExperimentalMaterial3Api::class)
@@ -334,25 +398,29 @@ private fun QuickStatsSection(
         val formatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale)
         val todayKey = today.format(formatter)
         
-        // Fetch today's appointments count
+        // Fetch today's remaining appointments (exclude past appointments)
         db.collection("appointments")
             .whereEqualTo("doctorId", doctorId)
             .whereEqualTo("date", todayKey)
             .get()
             .addOnSuccessListener { snap ->
-                todayAppointments = snap.documents.size
-            }
-        
-        // Fetch unique patients count
-        db.collection("appointments")
-            .whereEqualTo("doctorId", doctorId)
-            .get()
-            .addOnSuccessListener { snap ->
-                val uniquePatients = snap.documents
+                val currentTime = LocalTime.now()
+                val currentMinutes = currentTime.hour * 60 + currentTime.minute
+                
+                // Filter to only count appointments that haven't started yet
+                val remainingCount = snap.documents.count { doc ->
+                    val timeStr = doc.getString("timing") ?: doc.getString("time") ?: ""
+                    val appointmentMinutes = parseAppointmentStartMinutes(timeStr)
+                    appointmentMinutes >= currentMinutes
+                }
+                todayAppointments = remainingCount
+                
+                // Count unique patients with appointments today
+                val uniquePatientsToday = snap.documents
                     .mapNotNull { it.getString("patientId") }
                     .filter { it.isNotBlank() }
                     .distinct()
-                totalPatients = uniquePatients.size
+                totalPatients = uniquePatientsToday.size
                 isLoading = false
             }
             .addOnFailureListener {
@@ -379,12 +447,12 @@ private fun QuickStatsSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Today's Appointments Card
+            // Remaining Appointments Today Card
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Today",
+                title = "Remaining",
                 value = if (isLoading) "..." else todayAppointments.toString(),
-                subtitle = "Appointments",
+                subtitle = "Today",
                 iconRes = R.drawable.ic_booking,
                 onClick = {
                     navController.navigate("doctor_schedule") {
@@ -393,10 +461,10 @@ private fun QuickStatsSection(
                 }
             )
             
-            // Total Patients Card
+            // Today's Patients Card
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Total",
+                title = "Today",
                 value = if (isLoading) "..." else totalPatients.toString(),
                 subtitle = "Patients",
                 iconRes = R.drawable.ic_record,
@@ -913,7 +981,8 @@ data class DoctorPatientItem(
     val patientId: String,
     val firstName: String,
     val lastName: String,
-    val lastVisitDate: String
+    val appointmentDate: String,
+    val isUpcoming: Boolean    // true if next appointment, false if last appointment
 )
 
 @Composable
@@ -1043,6 +1112,7 @@ fun DoctorProfileScreen(navController: NavController) {
 fun DoctorPatientsScreen(navController: NavController) {
     val context = LocalContext.current
     val db = remember { FirebaseFirestore.getInstance() }
+    val locale = remember { Locale.getDefault() }
 
     var patients by remember { mutableStateOf<List<DoctorPatientItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -1059,6 +1129,10 @@ fun DoctorPatientsScreen(navController: NavController) {
                 return@LaunchedEffect
             }
 
+            val today = LocalDate.now()
+            val tenDaysAgo = today.minusDays(10)
+            val currentMinutes = LocalTime.now().let { it.hour * 60 + it.minute }
+
             db.collection("appointments")
                 .whereEqualTo("doctorId", doctorId)
                 .get()
@@ -1067,20 +1141,79 @@ fun DoctorPatientsScreen(navController: NavController) {
                         .groupBy { it.getString("patientId") ?: "" }
                         .filterKeys { it.isNotBlank() }
 
-                    val list = grouped.map { (pid, docs) ->
-                        val firstDoc = docs.first()
-                        val first = firstDoc.getString("patientFirstName") ?: ""
-                        val last = firstDoc.getString("patientLastName") ?: ""
-                        val date = firstDoc.getString("date") ?: ""
+                    // Filter to only include patients whose most recent appointment is within 10 days
+                    val filteredList = grouped.mapNotNull { (pid, docs) ->
+                        // Find the most recent appointment date for this patient
+                        val mostRecentDate = docs.mapNotNull { doc ->
+                            val dateStr = doc.getString("date") ?: ""
+                            parseAppointmentDateLabel(dateStr, locale)
+                        }.maxOrNull()
+
+                        // Only include if most recent appointment is within 10 days
+                        if (mostRecentDate == null || mostRecentDate.isBefore(tenDaysAgo)) {
+                            return@mapNotNull null
+                        }
+
+                        // Separate upcoming and past appointments (time-sensitive for today)
+                        val upcomingDocs = docs.filter { doc ->
+                            val dateStr = doc.getString("date") ?: ""
+                            val timing = doc.getString("timing") ?: doc.getString("time") ?: ""
+                            val apptDate = parseAppointmentDateLabel(dateStr, locale)
+                            !isAppointmentPastDoctor(apptDate, timing, today, currentMinutes)
+                        }
+                        val pastDocs = docs.filter { doc ->
+                            val dateStr = doc.getString("date") ?: ""
+                            val timing = doc.getString("timing") ?: doc.getString("time") ?: ""
+                            val apptDate = parseAppointmentDateLabel(dateStr, locale)
+                            isAppointmentPastDoctor(apptDate, timing, today, currentMinutes)
+                        }
+
+                        // Determine which appointment to show
+                        val (displayDoc, isUpcoming) = if (upcomingDocs.isNotEmpty()) {
+                            // Show earliest upcoming appointment (by date then time)
+                            val earliest = upcomingDocs.minWithOrNull(
+                                compareBy(
+                                    { parseAppointmentDateLabel(it.getString("date") ?: "", locale) ?: LocalDate.MAX },
+                                    { parseAppointmentStartMinutes(it.getString("timing") ?: it.getString("time") ?: "") }
+                                )
+                            )!!
+                            earliest to true
+                        } else if (pastDocs.isNotEmpty()) {
+                            // Show most recent past appointment (by date then time)
+                            val mostRecent = pastDocs.maxWithOrNull(
+                                compareBy(
+                                    { parseAppointmentDateLabel(it.getString("date") ?: "", locale) ?: LocalDate.MIN },
+                                    { parseAppointmentStartMinutes(it.getString("timing") ?: it.getString("time") ?: "") }
+                                )
+                            )!!
+                            mostRecent to false
+                        } else {
+                            docs.first() to false
+                        }
+
+                        val first = displayDoc.getString("patientFirstName") ?: ""
+                        val last = displayDoc.getString("patientLastName") ?: ""
+                        val date = displayDoc.getString("date") ?: ""
+                        val timing = displayDoc.getString("timing") ?: displayDoc.getString("time") ?: ""
+                        
+                        val appointmentLabel = buildString {
+                            if (date.isNotBlank()) append(date)
+                            if (timing.isNotBlank()) {
+                                if (isNotEmpty()) append("  ")
+                                append(timing)
+                            }
+                        }
+                        
                         DoctorPatientItem(
                             patientId = pid,
                             firstName = first,
                             lastName = last,
-                            lastVisitDate = date
+                            appointmentDate = appointmentLabel,
+                            isUpcoming = isUpcoming
                         )
                     }.sortedBy { it.firstName.lowercase() }
 
-                    patients = list
+                    patients = filteredList
                     loading = false
                     error = null
                 }
@@ -1209,10 +1342,10 @@ private fun DoctorPatientRow(item: DoctorPatientItem, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            if (item.lastVisitDate.isNotBlank()) {
+            if (item.appointmentDate.isNotBlank()) {
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Last visit: ${item.lastVisitDate}",
+                    text = if (item.isUpcoming) "Next appointment: ${item.appointmentDate}" else "Last appointment: ${item.appointmentDate}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
@@ -986,7 +987,8 @@ data class DoctorRecordEntry(
     val key: String,              // doctorId if available, otherwise doctorName
     val doctorName: String,
     val speciality: String,
-    val nextAppointmentLabel: String
+    val appointmentLabel: String,
+    val isUpcoming: Boolean       // true if next appointment is in future, false if last appointment
 )
 
 @Composable
@@ -1018,49 +1020,85 @@ fun PatientRecordDoctorListScreen(
     }
 
     val today = remember { LocalDate.now() }
+    val currentMinutes = remember { LocalTime.now().let { it.hour * 60 + it.minute } }
 
     // Build list of doctors for this patient from Firestore appointments
     val doctorEntries = remember(appointments, locale, patientId) {
-        // 1) filter to this patient + booked + upcoming
-        val relevant = appointments.filter { appt ->
-            val matchesPatient = patientId?.let { appt.patientId == it } ?: true
-            val isBooked = appt.status.equals("booked", ignoreCase = true)
-            val apptDate = parseAppointmentDate(appt.date, locale)
-            val isUpcoming = apptDate?.isAfter(today.minusDays(1)) ?: false
-
-            matchesPatient && isBooked && isUpcoming
-        }
-
-        // 2) group by doctor
-        val grouped = relevant.groupBy { appt ->
-            if (appt.doctorId.isNotBlank()) {
-                appt.doctorId
-            } else {
-                listOf(appt.doctorFirstName, appt.doctorLastName)
-                    .filter { it.isNotBlank() }
-                    .joinToString(" ")
-                    .ifBlank { "unknown-doctor" }
+        // 1) Group all appointments by doctor first
+        val grouped = appointments
+            .filter { appt ->
+                val matchesPatient = patientId?.let { appt.patientId == it } ?: true
+                val isBooked = appt.status.equals("booked", ignoreCase = true)
+                matchesPatient && isBooked
             }
+            .groupBy { appt ->
+                if (appt.doctorId.isNotBlank()) {
+                    appt.doctorId
+                } else {
+                    listOf(appt.doctorFirstName, appt.doctorLastName)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ")
+                        .ifBlank { "unknown-doctor" }
+                }
+            }
+
+        // 2) Filter to only include doctors whose most recent appointment is within 10 days
+        val filteredGrouped = grouped.filter { (_, list) ->
+            val mostRecentDate = list.mapNotNull { appt ->
+                parseAppointmentDate(appt.date, locale)
+            }.maxOrNull()
+            
+            mostRecentDate != null && !mostRecentDate.isBefore(today.minusDays(10))
         }
 
         // 3) map to DoctorRecordEntry
-        grouped.mapNotNull { (key, list) ->
+        filteredGrouped.mapNotNull { (key, list) ->
             if (list.isEmpty()) return@mapNotNull null
 
-            val earliestAppt = list.minByOrNull { appt ->
-                parseAppointmentDate(appt.date, locale) ?: LocalDate.MAX
-            } ?: return@mapNotNull null
+            // Separate upcoming and past appointments (time-sensitive for today)
+            val upcomingAppts = list.filter { appt ->
+                val apptDate = parseAppointmentDate(appt.date, locale)
+                !isAppointmentPast(apptDate, appt.timing, today, currentMinutes)
+            }
+            val pastAppts = list.filter { appt ->
+                val apptDate = parseAppointmentDate(appt.date, locale)
+                isAppointmentPast(apptDate, appt.timing, today, currentMinutes)
+            }
+
+            // Determine which appointment to show: next upcoming, or most recent past
+            val (displayAppt, isUpcoming) = if (upcomingAppts.isNotEmpty()) {
+                // Show the earliest upcoming appointment (by date then time)
+                val earliest = upcomingAppts.minWithOrNull(
+                    compareBy(
+                        { parseAppointmentDate(it.date, locale) ?: LocalDate.MAX },
+                        { parseAppointmentTimeMinutes(it.timing) }
+                    )
+                )!!
+                earliest to true
+            } else if (pastAppts.isNotEmpty()) {
+                // Show the most recent past appointment (by date then time)
+                val mostRecent = pastAppts.maxWithOrNull(
+                    compareBy(
+                        { parseAppointmentDate(it.date, locale) ?: LocalDate.MIN },
+                        { parseAppointmentTimeMinutes(it.timing) }
+                    )
+                )!!
+                mostRecent to false
+            } else {
+                // Fallback to first in list
+                list.first() to false
+            }
 
             // If we genuinely have no doctor info, skip
             if (
-                earliestAppt.doctorId.isBlank() &&
-                earliestAppt.doctorFirstName.isBlank() &&
-                earliestAppt.doctorLastName.isBlank()
+                displayAppt.doctorId.isBlank() &&
+                displayAppt.doctorFirstName.isBlank() &&
+                displayAppt.doctorLastName.isBlank()
             ) return@mapNotNull null
 
             val doctorName = listOf(
-                earliestAppt.doctorFirstName,
-                earliestAppt.doctorLastName
+                displayAppt.doctorFirstName,
+                displayAppt.doctorLastName
             ).filter { it.isNotBlank() }
                 .joinToString(" ")
                 .ifBlank { "Unknown doctor" }
@@ -1068,16 +1106,16 @@ fun PatientRecordDoctorListScreen(
             val displayDoctorName = "Dr. $doctorName".trim()
 
             val displaySpeciality =
-                if (earliestAppt.doctorSpeciality.isNotBlank())
-                    earliestAppt.doctorSpeciality
+                if (displayAppt.doctorSpeciality.isNotBlank())
+                    displayAppt.doctorSpeciality
                 else
                     "Speciality not set"
 
-            val nextAppointmentLabel = buildString {
-                if (earliestAppt.date.isNotBlank()) append(earliestAppt.date)
-                if (earliestAppt.timing.isNotBlank()) {
+            val appointmentLabel = buildString {
+                if (displayAppt.date.isNotBlank()) append(displayAppt.date)
+                if (displayAppt.timing.isNotBlank()) {
                     if (isNotEmpty()) append("  ")
-                    append(earliestAppt.timing)
+                    append(displayAppt.timing)
                 }
             }.ifBlank { "Not scheduled" }
 
@@ -1085,10 +1123,11 @@ fun PatientRecordDoctorListScreen(
                 key = key,
                 doctorName = displayDoctorName,
                 speciality = displaySpeciality,
-                nextAppointmentLabel = nextAppointmentLabel
+                appointmentLabel = appointmentLabel,
+                isUpcoming = isUpcoming
             )
         }.sortedBy { entry ->
-            val datePart = entry.nextAppointmentLabel.substringBefore("  ")
+            val datePart = entry.appointmentLabel.substringBefore("  ")
             parseAppointmentDate(datePart, locale) ?: LocalDate.MAX
         }
     }
@@ -1212,7 +1251,7 @@ private fun DoctorRecordCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Next appointment: ${entry.nextAppointmentLabel}",
+                text = if (entry.isUpcoming) "Next appointment: ${entry.appointmentLabel}" else "Last appointment: ${entry.appointmentLabel}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
@@ -1273,6 +1312,45 @@ private fun parseAppointmentDate(raw: String, locale: Locale): LocalDate? {
 
     // If nothing matched, give up
     return null
+}
+
+/**
+ * Helper to parse the start time in minutes from strings like "6:00 pm – 9:00 pm" or "4:45 PM"
+ * Returns Int.MAX_VALUE if parsing fails.
+ */
+private fun parseAppointmentTimeMinutes(timing: String): Int {
+    val firstPart = timing.split("–", "-", "to").firstOrNull()?.trim() ?: return Int.MAX_VALUE
+    val pieces = firstPart.split(" ")
+    if (pieces.isEmpty()) return Int.MAX_VALUE
+
+    val timePart = pieces[0]
+    val amPm = pieces.getOrNull(1)?.lowercase(Locale.getDefault()) ?: "am"
+
+    val hm = timePart.split(":")
+    val hour12 = hm.getOrNull(0)?.toIntOrNull() ?: return Int.MAX_VALUE
+    val minute = hm.getOrNull(1)?.toIntOrNull() ?: 0
+
+    var hour24 = hour12 % 12
+    if (amPm == "pm") {
+        hour24 += 12
+    }
+    return hour24 * 60 + minute
+}
+
+/**
+ * Checks if an appointment is in the past based on date and time.
+ * For today's appointments, compares the time. For other days, only compares the date.
+ */
+private fun isAppointmentPast(apptDate: LocalDate?, timing: String, today: LocalDate, currentMinutes: Int): Boolean {
+    if (apptDate == null) return false
+    return when {
+        apptDate.isBefore(today) -> true
+        apptDate.isEqual(today) -> {
+            val apptMinutes = parseAppointmentTimeMinutes(timing)
+            apptMinutes < currentMinutes
+        }
+        else -> false
+    }
 }
 
 /* --------------------------- Bottom Bar ---------------------------- */
