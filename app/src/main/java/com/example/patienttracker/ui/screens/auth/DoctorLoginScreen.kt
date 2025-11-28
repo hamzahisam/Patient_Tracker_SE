@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,7 +45,7 @@ fun DoctorLoginScreen(
     val accentBlue = Color(0xFF4CB7C2)
     val boxBackground = Color(0xFF11151A)
 
-    var doctorId by remember { mutableStateOf("") }   // humanId like 000001
+    var idOrEmail by remember { mutableStateOf("") }  // humanId like 000001 OR email
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
@@ -110,6 +111,8 @@ fun DoctorLoginScreen(
                     .imePadding()
                     .padding(24.dp)
             ) {
+                Spacer(Modifier.height(48.dp)) // Space for back button
+                
                 Text(
                     text = "Doctor Login",
                     fontSize = 28.sp,
@@ -120,9 +123,9 @@ fun DoctorLoginScreen(
                 Spacer(Modifier.height(32.dp))
 
                 OutlinedTextField(
-                    value = doctorId,
-                    onValueChange = { doctorId = it },
-                    label = { Text("Doctor ID") },
+                    value = idOrEmail,
+                    onValueChange = { idOrEmail = it },
+                    label = { Text("Doctor ID or Email") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
@@ -190,19 +193,25 @@ fun DoctorLoginScreen(
                 Button(
                     onClick = {
                         coroutineScope.launch {
-                            if (doctorId.isBlank() || password.isBlank()) {
-                                Toast.makeText(context, "Enter Doctor ID and password", Toast.LENGTH_SHORT).show()
+                            if (idOrEmail.isBlank() || password.isBlank()) {
+                                Toast.makeText(context, "Enter Doctor ID/Email and password", Toast.LENGTH_SHORT).show()
                                 return@launch
                             }
                             isLoading = true
                             try {
-                                // 1) Look up Firestore profile by humanId
-                                val profile = findDoctorByHumanId(doctorId.trim())
-                                    ?: throw IllegalArgumentException("No doctor with this ID")
+                                // Determine if user entered email or humanId
+                                val emailToUse = if (idOrEmail.contains("@")) {
+                                    idOrEmail.trim()
+                                } else {
+                                    // Look up Firestore profile by humanId
+                                    val profile = findDoctorByHumanId(idOrEmail.trim())
+                                        ?: throw IllegalArgumentException("No doctor with this ID")
+                                    profile.email
+                                }
 
-                                // 2) Sign in using the profile's email + provided password
+                                // Sign in using the email + provided password
                                 val authUser = Firebase.auth
-                                    .signInWithEmailAndPassword(profile.email, password)
+                                    .signInWithEmailAndPassword(emailToUse, password)
                                     .await()
                                     .user ?: throw IllegalStateException("Auth failed")
 
@@ -253,7 +262,7 @@ fun DoctorLoginScreen(
                     fontSize = 14.sp,
                     modifier = Modifier.clickable {
                         coroutineScope.launch {
-                            if (doctorId.isBlank()) {
+                            if (idOrEmail.isBlank()) {
                                 Toast.makeText(
                                     context,
                                     "Please enter your Doctor ID or Email first",
@@ -264,11 +273,11 @@ fun DoctorLoginScreen(
 
                             isLoading = true
                             try {
-                                val emailToUse = if (doctorId.contains("@")) {
-                                    doctorId.trim()
+                                val emailToUse = if (idOrEmail.contains("@")) {
+                                    idOrEmail.trim()
                                 } else {
                                     // Treat as Doctor ID (humanId) and resolve to email via Firestore
-                                    val profile = findDoctorByHumanId(doctorId.trim())
+                                    val profile = findDoctorByHumanId(idOrEmail.trim())
                                         ?: throw IllegalArgumentException("No doctor with this ID")
                                     profile.email
                                 }
@@ -303,6 +312,20 @@ fun DoctorLoginScreen(
                         .align(Alignment.Center)
                         .size(44.dp),
                     color = accentBlue
+                )
+            }
+            
+            // Back button at top-left (placed last to be on top)
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 40.dp, start = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = accentBlue
                 )
             }
         }

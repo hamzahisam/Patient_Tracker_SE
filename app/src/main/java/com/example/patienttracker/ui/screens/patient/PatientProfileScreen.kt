@@ -155,6 +155,17 @@ fun PatientProfileScreen(
                                 fontSize = 14.sp,
                                 color = Color(0xFF0EA5B8)
                             )
+
+                            // Display Patient ID
+                            val humanId = userProfile?.humanId ?: ""
+                            if (humanId.isNotBlank()) {
+                                Text(
+                                    text = "Patient ID: $humanId",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF0EA5B8)
+                                )
+                            }
                         }
                     }
 

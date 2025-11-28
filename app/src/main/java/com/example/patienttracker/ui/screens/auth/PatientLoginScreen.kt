@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
@@ -152,6 +153,8 @@ fun PatientLoginScreen(
                     .imePadding()
                     .padding(24.dp)
             ) {
+                Spacer(Modifier.height(48.dp)) // Space for back button
+                
                 Text(
                     text = "Patient Login",
                     fontSize = 28.sp,
@@ -453,6 +456,20 @@ fun PatientLoginScreen(
                         .align(Alignment.Center)
                         .size(44.dp),
                     color = Color(0xFF0EA5B8)
+                )
+            }
+            
+            // Back button at top-left (placed last to be on top)
+            IconButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = 40.dp, start = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color(0xFF4CB7C2)
                 )
             }
         }

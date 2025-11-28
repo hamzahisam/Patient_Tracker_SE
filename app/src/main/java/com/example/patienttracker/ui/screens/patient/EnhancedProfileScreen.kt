@@ -45,6 +45,7 @@ fun EnhancedProfileScreen(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var role by remember { mutableStateOf("") }
+    var humanId by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val profile = AuthManager.getCurrentUserProfile()
@@ -53,6 +54,7 @@ fun EnhancedProfileScreen(navController: NavController) {
         email = Firebase.auth.currentUser?.email ?: ""
         phone = profile?.phoneNumber ?: ""
         role = profile?.role ?: ""
+        humanId = profile?.humanId ?: ""
     }
 
     // Logout dialog
@@ -204,11 +206,14 @@ fun EnhancedProfileScreen(navController: NavController) {
                         else -> ""
                     }
 
-                    if (roleLabel.isNotEmpty()) {
+                    // Display Patient ID or Doctor ID
+                    if (humanId.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = roleLabel,
+                            text = if (role.equals("doctor", ignoreCase = true)) "Doctor ID: $humanId" else "Patient ID: $humanId",
                             fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            fontWeight = FontWeight.Medium,
+                            color = accent
                         )
                     }
                 }
