@@ -73,18 +73,16 @@ fun DoctorListScreen(
     // LazyColumn state for auto-scroll
     val listState = rememberLazyListState()
     
-    // Auto-scroll to top when search query changes
-    LaunchedEffect(searchQuery) {
-        if (searchQuery.isNotBlank()) {
-            listState.animateScrollToItem(0)
-        }
-    }
-    
     // Day and Time filter state
     var selectedDay by remember { mutableStateOf<String?>(null) } // Day name like "Mon", "Tue", etc.
     var selectedTime by remember { mutableStateOf<Int?>(null) } // Time in HHmm format (e.g., 1400 for 2:00 PM)
     var showDayPicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    
+    // Auto-scroll to top when search query or filters change
+    LaunchedEffect(searchQuery, selectedDay, selectedTime) {
+        listState.animateScrollToItem(0)
+    }
     
     // Get current user ID and load favorites
     var favoriteDoctorIds by remember { mutableStateOf<Set<String>>(emptySet()) }

@@ -125,6 +125,7 @@ fun DoctorHomeScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(inner)
+                .verticalScroll(rememberScrollState())
         ) {
             DoctorHeader(
                 gradient = gradient,
@@ -148,11 +149,21 @@ fun DoctorHomeScreen(
 
             Spacer(Modifier.height(12.dp))
 
+            // Quick Stats Cards
+            QuickStatsSection(
+                doctorId = resolvedId,
+                navController = navController
+            )
+
+            Spacer(Modifier.height(12.dp))
+
             DoctorSchedule(
                 gradient = gradient,
                 doctorId = resolvedId,
                 navController = navController
             )
+            
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
@@ -294,6 +305,184 @@ private fun IconBubble(@DrawableRes iconRes: Int, onClick: () -> Unit) {
             contentDescription = null,
             modifier = Modifier.size(22.dp)
         )
+    }
+}
+
+// ---------- Quick Stats Section ----------
+@Composable
+private fun QuickStatsSection(
+    doctorId: String,
+    navController: NavController
+) {
+    val accent = Color(0xFF4CB7C2)
+    val db = remember { FirebaseFirestore.getInstance() }
+    val locale = Locale.getDefault()
+    
+    // Stats state
+    var todayAppointments by remember { mutableStateOf(0) }
+    var totalPatients by remember { mutableStateOf(0) }
+    var isLoading by remember { mutableStateOf(true) }
+    
+    // Fetch stats from Firebase
+    LaunchedEffect(doctorId) {
+        if (doctorId.isBlank()) {
+            isLoading = false
+            return@LaunchedEffect
+        }
+        
+        val today = LocalDate.now()
+        val formatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale)
+        val todayKey = today.format(formatter)
+        
+        // Fetch today's appointments count
+        db.collection("appointments")
+            .whereEqualTo("doctorId", doctorId)
+            .whereEqualTo("date", todayKey)
+            .get()
+            .addOnSuccessListener { snap ->
+                todayAppointments = snap.documents.size
+            }
+        
+        // Fetch unique patients count
+        db.collection("appointments")
+            .whereEqualTo("doctorId", doctorId)
+            .get()
+            .addOnSuccessListener { snap ->
+                val uniquePatients = snap.documents
+                    .mapNotNull { it.getString("patientId") }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                totalPatients = uniquePatients.size
+                isLoading = false
+            }
+            .addOnFailureListener {
+                isLoading = false
+            }
+    }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        Text(
+            text = "Quick Stats",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                color = accent
+            )
+        )
+        
+        Spacer(Modifier.height(12.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Today's Appointments Card
+            StatCard(
+                modifier = Modifier.weight(1f),
+                title = "Today",
+                value = if (isLoading) "..." else todayAppointments.toString(),
+                subtitle = "Appointments",
+                iconRes = R.drawable.ic_booking,
+                onClick = {
+                    navController.navigate("doctor_schedule") {
+                        launchSingleTop = true
+                    }
+                }
+            )
+            
+            // Total Patients Card
+            StatCard(
+                modifier = Modifier.weight(1f),
+                title = "Total",
+                value = if (isLoading) "..." else totalPatients.toString(),
+                subtitle = "Patients",
+                iconRes = R.drawable.ic_record,
+                onClick = {
+                    navController.navigate("doctor_patients") {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    subtitle: String,
+    @DrawableRes iconRes: Int,
+    onClick: () -> Unit
+) {
+    val accent = Color(0xFF4CB7C2)
+    
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() },
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .border(1.dp, accent.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Icon
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(accent.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = iconRes),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                Spacer(Modifier.height(8.dp))
+                
+                // Title
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+                
+                // Value
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = accent
+                    )
+                )
+                
+                // Subtitle
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+        }
     }
 }
 

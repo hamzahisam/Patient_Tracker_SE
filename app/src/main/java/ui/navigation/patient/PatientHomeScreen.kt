@@ -101,25 +101,28 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
                 lastName = lastNameArg,
                 navController = navController
             )
+            
+            // Search bar moved to top for better accessibility
+            PainSearchBar(navController = navController)
 
             CategoriesRow(
                 items = listOf(
                     Category("Doctors", R.drawable.ic_doctors),
                     Category("Favorite", R.drawable.ic_favourites),
-                    Category("Specialties", R.drawable.ic_specialties)
+                    Category("Specialties", R.drawable.ic_specialties),
+                    Category("Recent", R.drawable.ic_recent)
                 ),
                 onCategoryClick = { category ->
                     when (category.label) {
                         "Favorite" -> navController.navigate("favorites_screen")
                         "Doctors" -> navController.navigate("doctor_list/All")
                         "Specialties" -> navController.navigate("patient_specialties")
+                        "Recent" -> navController.navigate("recent_doctors")
                     }
                 }
             )
 
             UpcomingSchedule(gradient = gradient, navController = navController)
-
-            PainSearchBar(navController = navController)
         }
     }
 }
@@ -314,26 +317,51 @@ private fun RowScope.CategoryChip(
     cat: Category,
     onClick: (Category) -> Unit = {}
 ) {
+    val accent = Color(0xFF4CB7C2)
     Column(
         modifier = Modifier
             .weight(1f)
             .clip(RoundedCornerShape(12.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = true, color = Color(0xFF4CB7C2))
+                indication = ripple(bounded = true, color = accent)
             ) {
                 onClick(cat)
             },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            painter = painterResource(id = cat.iconRes),
-            contentDescription = cat.label,
-            modifier = Modifier
-                .size(if (cat.label == "Doctors") 48.dp else if (cat.label == "Favorite") 60.dp else 66.dp)
-                .padding(top = 4.dp),
-            contentScale = ContentScale.Fit
-        )
+        if (cat.label == "Recent") {
+            // Recent uses vector icon, show icon + text separately
+            Box(
+                modifier = Modifier
+                    .size(36.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = cat.iconRes),
+                    contentDescription = cat.label,
+                    modifier = Modifier.size(32.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+            Text(
+                text = "Recent",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = accent,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        } else {
+            // Other categories have text baked into PNG
+            Image(
+                painter = painterResource(id = cat.iconRes),
+                contentDescription = cat.label,
+                modifier = Modifier
+                    .size(if (cat.label == "Doctors") 48.dp else if (cat.label == "Favorite") 60.dp else 66.dp)
+                    .padding(top = 4.dp),
+                contentScale = ContentScale.Fit
+            )
+        }
     }
 }
 

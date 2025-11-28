@@ -47,6 +47,7 @@ import com.example.patienttracker.ui.screens.doctor.DoctorPatientReportsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientPrescriptionsScreen
 import com.example.patienttracker.ui.screens.patient.EnhancedProfileScreen
 import com.example.patienttracker.ui.screens.patient.SettingsScreen
+import com.example.patienttracker.ui.screens.patient.RecentDoctorsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorSettingsScreen
 import com.example.patienttracker.ui.screens.patient.PatientRecordDoctorListScreen
 import com.example.patienttracker.ui.screens.patient.SpecialtiesScreen
@@ -245,6 +246,10 @@ fun AppNavHost(context: Context) {
         composable("doctor_list/{speciality}") { backStackEntry ->
             val speciality = backStackEntry.arguments?.getString("speciality")
             DoctorListScreen(navController, context, speciality)
+        }
+        
+        composable("recent_doctors") {
+            RecentDoctorsScreen(navController, context)
         }
 
         composable("book_appointment") {
