@@ -715,7 +715,7 @@ private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
             } catch (e: Exception) {
                 false
             }
-        }
+        }.sortedBy { parseAppointmentTimeMinutes(it.timing) }  // Sort by time ascending
 
         if (filtered.isEmpty()) {
             NoAppointmentsCard(gradient, selectedDate)
@@ -1210,7 +1210,8 @@ fun PatientRecordDoctorListScreen(
                         DoctorRecordCard(
                             entry = entry,
                             onClick = {
-                                navController.navigate("patient_record_options/${entry.key}")
+                                val encodedName = java.net.URLEncoder.encode(entry.doctorName, "UTF-8")
+                                navController.navigate("patient_record_options/${entry.key}/$encodedName")
                             }
                         )
                     }

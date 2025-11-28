@@ -276,7 +276,8 @@ fun ChatScreen(
                     ChatMessageBubble(
                         message = message,
                         navController = navController,
-                        currentUserRole = currentUserRole
+                        currentUserRole = currentUserRole,
+                        doctorName = doctorUser?.let { "${it.firstName} ${it.lastName}" } ?: "Doctor"
                     )
                 }
             }
@@ -295,7 +296,9 @@ fun ChatScreen(
                         navController.currentBackStackEntry?.savedStateHandle?.set("chatDoctorId", doctorId)
                         navController.currentBackStackEntry?.savedStateHandle?.set("chatPatientId", patientId)
                         navController.currentBackStackEntry?.savedStateHandle?.set("chatConversationId", conversationId)
-                        navController.navigate("patient_reports_screen/$doctorId")
+                        val doctorName = doctorUser?.let { "${it.firstName} ${it.lastName}" } ?: "Doctor"
+                        val encodedName = java.net.URLEncoder.encode(doctorName, "UTF-8")
+                        navController.navigate("patient_reports_screen/$doctorId/$encodedName")
                     },
                     enabled = patientId.isNotEmpty()
                 ) {
@@ -389,7 +392,8 @@ fun ChatScreen(
 fun ChatMessageBubble(
     message: ChatMessage,
     navController: NavController,
-    currentUserRole: String
+    currentUserRole: String,
+    doctorName: String = "Doctor"
 ) {
     val isMyMessage = message.isSentByMe
     val timeFormatter = remember {
@@ -453,7 +457,8 @@ fun ChatMessageBubble(
                                         // Prescription uploaded by doctor
                                         if (currentUserRole == "patient") {
                                             // Patient viewing doctor's prescription
-                                            navController.navigate("patient_prescriptions_screen/${message.doctorId}")
+                                            val encodedName = java.net.URLEncoder.encode(doctorName, "UTF-8")
+                                            navController.navigate("patient_prescriptions_screen/${message.doctorId}/$encodedName")
                                         } else {
                                             // Doctor viewing their own prescription
                                             navController.navigate("doctor_patient_prescriptions_screen/${message.patientId}/Patient")
@@ -462,7 +467,8 @@ fun ChatMessageBubble(
                                         // Report uploaded by patient
                                         if (currentUserRole == "patient") {
                                             // Patient viewing their own report
-                                            navController.navigate("patient_reports_screen/${message.doctorId}")
+                                            val encodedName = java.net.URLEncoder.encode(doctorName, "UTF-8")
+                                            navController.navigate("patient_reports_screen/${message.doctorId}/$encodedName")
                                         } else {
                                             // Doctor viewing patient's report
                                             navController.navigate("doctor_patient_reports_screen/${message.patientId}/Patient")

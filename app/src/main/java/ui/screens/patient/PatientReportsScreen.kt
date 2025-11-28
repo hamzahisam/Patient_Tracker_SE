@@ -106,7 +106,9 @@ fun PatientReportsScreen(
     fromChat: Boolean = false,
     chatDoctorId: String = "",
     chatPatientId: String = "",
-    chatConversationId: String = ""
+    chatConversationId: String = "",
+    // Doctor filter for scoped document access (security)
+    doctorIdFilter: String = ""
 ) {
     val db = remember { FirebaseFirestore.getInstance() }
     val collection = collectionOverride ?: "records"
@@ -153,6 +155,8 @@ fun PatientReportsScreen(
                 return@LaunchedEffect
             }
 
+            // Query by patientId and order by createdAt
+            // Note: doctorId filtering is done client-side to avoid requiring composite indexes
             db.collection(collection)
                 .whereEqualTo("patientId", patientId)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
@@ -163,7 +167,15 @@ fun PatientReportsScreen(
                         return@addSnapshotListener
                     }
 
-                    val list = snapshot?.documents?.map { doc ->
+                    val list = snapshot?.documents?.mapNotNull { doc ->
+                        val docDoctorId = doc.getString("doctorId") ?: ""
+                        
+                        // Security filter: if doctorIdFilter is set, only show docs for that doctor
+                        // Also show docs with no doctorId (legacy data) only if no filter is set
+                        if (doctorIdFilter.isNotBlank() && docDoctorId != doctorIdFilter) {
+                            return@mapNotNull null  // Skip documents not for this doctor
+                        }
+                        
                         MedicalRecord(
                             id = doc.id,
                             patientId = doc.getString("patientId") ?: "",
@@ -212,8 +224,13 @@ fun PatientReportsScreen(
             return@rememberLauncherForActivityResult
         }
 
+        // Use doctorIdFilter for scoping document to specific doctor-patient relationship
+        // For chat uploads, use chatDoctorId as fallback
+        val effectiveDoctorId = doctorIdFilter.ifBlank { chatDoctorId }
+        
         val recordMap = hashMapOf(
             "patientId" to pid,
+            "doctorId" to effectiveDoctorId,  // Security: scope document to specific doctor
             "title" to fileName,
             "fileName" to fileName,
             "mimeType" to mimeType,
@@ -275,8 +292,13 @@ fun PatientReportsScreen(
             return
         }
 
+        // Use doctorIdFilter for scoping document to specific doctor-patient relationship
+        // For chat uploads, use chatDoctorId as fallback
+        val effectiveDoctorId = doctorIdFilter.ifBlank { chatDoctorId }
+        
         val recordMap = hashMapOf(
             "patientId" to pid,
+            "doctorId" to effectiveDoctorId,  // Security: scope document to specific doctor
             "title" to fileName,
             "fileName" to fileName,
             "mimeType" to mimeType,

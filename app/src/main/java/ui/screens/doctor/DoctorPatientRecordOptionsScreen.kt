@@ -91,7 +91,7 @@ fun DoctorPatientRecordOptionsScreen(
             // 🔹 2) Reports – read-only for doctor, separate from prescriptions
             DoctorRecordOptionCard(
                 title = "Reports",
-                iconRes = R.drawable.ic_records
+                iconRes = R.drawable.ic_record
             ) {
                 navController.navigate(
                     "doctor_patient_reports_screen/$patientId/$patientName"

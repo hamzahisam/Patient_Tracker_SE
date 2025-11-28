@@ -56,7 +56,14 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
 
             // Fetch appointments based on humanId
             val remoteAppointments = UserRepository.getAppointmentsForPatient(humanId)
-            val upcomingAppointments = remoteAppointments.filter { !isPastAppointment(it) }
+            val upcomingAppointments = remoteAppointments
+                .filter { !isPastAppointment(it) }
+                .sortedWith(
+                    compareBy(
+                        { parseApptDate(it.date) ?: LocalDate.MAX },
+                        { parseApptTimeMinutes(it.timing) }
+                    )
+                )
 
             appointments.clear()
             appointments.addAll(upcomingAppointments)
@@ -310,6 +317,40 @@ private fun isPastAppointment(app: Appointment): Boolean {
     }
 }
 
+/**
+ * Parse appointment date string into LocalDate
+ */
+private fun parseApptDate(dateStr: String): LocalDate? {
+    return try {
+        val dateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", Locale.ENGLISH)
+        LocalDate.parse(dateStr, dateFormatter)
+    } catch (e: Exception) {
+        null
+    }
+}
+
+/**
+ * Parse appointment time string into minutes since midnight for sorting
+ */
+private fun parseApptTimeMinutes(timing: String): Int {
+    val firstPart = timing.split("–", "-", "to").firstOrNull()?.trim() ?: return Int.MAX_VALUE
+    val pieces = firstPart.split(" ")
+    if (pieces.isEmpty()) return Int.MAX_VALUE
+
+    val timePart = pieces[0]
+    val amPm = pieces.getOrNull(1)?.lowercase(Locale.getDefault()) ?: "am"
+
+    val hm = timePart.split(":")
+    val hour12 = hm.getOrNull(0)?.toIntOrNull() ?: return Int.MAX_VALUE
+    val minute = hm.getOrNull(1)?.toIntOrNull() ?: 0
+
+    var hour24 = hour12 % 12
+    if (amPm == "pm") {
+        hour24 += 12
+    }
+    return hour24 * 60 + minute
+}
+
 @Composable
 fun PastScheduleScreen(navController: NavController, context: Context) {
     val appointments = remember { mutableStateListOf<Appointment>() }
@@ -329,7 +370,12 @@ fun PastScheduleScreen(navController: NavController, context: Context) {
             }
 
             val remoteAppointments = UserRepository.getAppointmentsForPatient(humanId)
-            val past = remoteAppointments.filter { isPastAppointment(it) }
+            val past = remoteAppointments
+                .filter { isPastAppointment(it) }
+                .sortedWith(
+                    compareByDescending<Appointment> { parseApptDate(it.date) ?: LocalDate.MIN }
+                        .thenByDescending { parseApptTimeMinutes(it.timing) }
+                )
 
             appointments.clear()
             appointments.addAll(past)

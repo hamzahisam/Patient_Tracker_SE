@@ -698,7 +698,7 @@ private fun DoctorSchedule(
                         patientName = patientName,
                         reason = reason
                     )
-                }.sortedBy { it.time }
+                }.sortedBy { parseAppointmentStartMinutes(it.time) }  // Sort by time ascending
 
                 appointmentsForDay = list
                 apptLoading = false

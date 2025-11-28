@@ -27,8 +27,14 @@ import com.example.patienttracker.ui.screens.patient.PatientBottomBar
 @Composable
 fun PatientRecordOptionsScreen(
     navController: NavController,
-    doctorKey: String
+    doctorKey: String,
+    doctorName: String = ""
 ) {
+    val decodedDoctorName = try {
+        java.net.URLDecoder.decode(doctorName, "UTF-8")
+    } catch (e: Exception) {
+        doctorName
+    }
 
     Scaffold(
         bottomBar = { PatientBottomBar(navController) }
@@ -55,7 +61,7 @@ fun PatientRecordOptionsScreen(
                 Spacer(modifier = Modifier.width(16.dp))
 
                 Text(
-                    text = "Records",
+                    text = if (decodedDoctorName.isNotBlank()) "Records – $decodedDoctorName" else "Records",
                     color = Color(0xFF4CB7C2),
                     style = MaterialTheme.typography.titleLarge
                 )
@@ -74,7 +80,8 @@ fun PatientRecordOptionsScreen(
                     title = "Prescriptions & Diagnosis",
                     iconRes = R.drawable.ic_doctor
                 ) {
-                    navController.navigate("patient_prescriptions_screen/$doctorKey")
+                    val encodedName = java.net.URLEncoder.encode(decodedDoctorName, "UTF-8")
+                    navController.navigate("patient_prescriptions_screen/$doctorKey/$encodedName")
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))
@@ -84,7 +91,8 @@ fun PatientRecordOptionsScreen(
                     title = "Reports",
                     iconRes = R.drawable.ic_record
                 ) {
-                    navController.navigate("patient_reports_screen/$doctorKey")
+                    val encodedName = java.net.URLEncoder.encode(decodedDoctorName, "UTF-8")
+                    navController.navigate("patient_reports_screen/$doctorKey/$encodedName")
                 }
             }
         }

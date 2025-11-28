@@ -243,14 +243,6 @@ private fun DoctorRow(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
-            if (doctor.humanId.isNotBlank()) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "ID: ${doctor.humanId}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }

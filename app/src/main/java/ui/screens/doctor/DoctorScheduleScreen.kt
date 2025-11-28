@@ -51,9 +51,9 @@ import java.util.Locale
 
 private const val ACCENT_HEX = 0xFF4CB7C2
 
-// Formatter for labels like "Monday, 24 Nov 2025"
+// Formatter for labels like "Monday, 24 Nov 2025" - use ENGLISH locale to match stored format
 private val dayFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", Locale.getDefault())
+    DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", Locale.ENGLISH)
 
 private fun parseDateLabel(label: String): LocalDate? = try {
     LocalDate.parse(label, dayFormatter)
@@ -61,9 +61,9 @@ private fun parseDateLabel(label: String): LocalDate? = try {
     null
 }
 
-// Parse the *start* time in minutes from strings like "6:00 pm – 9:00 pm"
+// Parse the *start* time in minutes from strings like "6:00 pm – 9:00 pm" or "4:45 PM"
 private fun parseStartMinutes(time: String): Int {
-    val firstPart = time.split("–").firstOrNull()?.trim() ?: return Int.MAX_VALUE
+    val firstPart = time.split("–", "-", "to").firstOrNull()?.trim() ?: return Int.MAX_VALUE
     val pieces = firstPart.split(" ")
     if (pieces.isEmpty()) return Int.MAX_VALUE
 
@@ -362,7 +362,7 @@ fun DoctorPastScheduleScreen(navController: NavController) {
                 .sortedWith(
                     compareByDescending<DoctorScheduleItem>(
                         { parseDateLabel(it.dateLabel) ?: LocalDate.MIN }
-                    ).thenBy { parseStartMinutes(it.time) }
+                    ).thenByDescending { parseStartMinutes(it.time) }
                 )
 
             items = list
