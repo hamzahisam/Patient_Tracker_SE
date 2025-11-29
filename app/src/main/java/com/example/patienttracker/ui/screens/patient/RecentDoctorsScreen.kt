@@ -26,12 +26,16 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 import com.example.patienttracker.ui.screens.patient.PatientBottomBar
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class RecentDoctor(
     val doctorId: String,
     val doctorName: String,
     val speciality: String,
-    val lastVisitDate: String
+    val visitDate: String,
+    val isUpcoming: Boolean  // true if appointment is in future
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,7 +68,27 @@ fun RecentDoctorsScreen(
                 .get()
                 .await()
 
-            // Group by doctor and get unique doctors with their last visit
+            // Date formats for parsing
+            val dateFormats = listOf(
+                SimpleDateFormat("EEEE, dd MMM yyyy", Locale.ENGLISH),
+                SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH),
+                SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH)
+            )
+            val now = Date()
+
+            fun parseDate(dateStr: String): Date? {
+                for (fmt in dateFormats) {
+                    try {
+                        return fmt.parse(dateStr)
+                    } catch (_: Exception) { }
+                }
+                return null
+            }
+
+            // Format for display
+            val displayFormat = SimpleDateFormat("EEEE, dd MMM yyyy", Locale.ENGLISH)
+
+            // Group by doctor - keep track of best appointment (upcoming preferred, then most recent past)
             val doctorMap = mutableMapOf<String, RecentDoctor>()
             
             for (doc in snapshot.documents) {
@@ -73,16 +97,53 @@ fun RecentDoctorsScreen(
                 val doctorLastName = doc.getString("doctorLastName") ?: ""
                 val doctorName = "Dr. $doctorFirstName $doctorLastName".trim()
                 val speciality = doc.getString("doctorSpeciality") ?: doc.getString("speciality") ?: "Specialist"
-                val date = doc.getString("date") ?: ""
+                val dateStr = doc.getString("date") ?: ""
+                val timeStr = doc.getString("time") ?: "00:00"
 
-                // Keep the most recent appointment for each doctor
-                if (!doctorMap.containsKey(doctorId)) {
+                val appointmentDate = parseDate(dateStr)
+                if (appointmentDate == null) continue
+
+                // Check if appointment is upcoming (considering time as well)
+                val isUpcoming = appointmentDate.after(now) || 
+                    (appointmentDate.toString().substring(0, 10) == now.toString().substring(0, 10) && 
+                     timeStr > SimpleDateFormat("HH:mm", Locale.ENGLISH).format(now))
+
+                val formattedDate = displayFormat.format(appointmentDate)
+
+                val existing = doctorMap[doctorId]
+                if (existing == null) {
+                    // No entry yet, add this one
                     doctorMap[doctorId] = RecentDoctor(
                         doctorId = doctorId,
                         doctorName = doctorName.ifBlank { "Doctor" },
                         speciality = speciality,
-                        lastVisitDate = date
+                        visitDate = formattedDate,
+                        isUpcoming = isUpcoming
                     )
+                } else {
+                    // Prefer upcoming over past, or more recent date
+                    val existingDate = parseDate(existing.visitDate)
+                    if (existingDate != null) {
+                        val shouldReplace = when {
+                            // New is upcoming, existing is past -> replace
+                            isUpcoming && !existing.isUpcoming -> true
+                            // Both upcoming -> keep the earlier (next) one
+                            isUpcoming && existing.isUpcoming -> appointmentDate.before(existingDate)
+                            // Both past -> keep the more recent one
+                            !isUpcoming && !existing.isUpcoming -> appointmentDate.after(existingDate)
+                            // New is past, existing is upcoming -> don't replace
+                            else -> false
+                        }
+                        if (shouldReplace) {
+                            doctorMap[doctorId] = RecentDoctor(
+                                doctorId = doctorId,
+                                doctorName = doctorName.ifBlank { "Doctor" },
+                                speciality = speciality,
+                                visitDate = formattedDate,
+                                isUpcoming = isUpcoming
+                            )
+                        }
+                    }
                 }
             }
 
@@ -255,10 +316,11 @@ private fun RecentDoctorCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = accent
                 )
-                if (doctor.lastVisitDate.isNotBlank()) {
+                if (doctor.visitDate.isNotBlank()) {
                     Spacer(Modifier.height(2.dp))
+                    val visitLabel = if (doctor.isUpcoming) "Next visit:" else "Last visit:"
                     Text(
-                        text = "Last visit: ${doctor.lastVisitDate}",
+                        text = "$visitLabel ${doctor.visitDate}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
