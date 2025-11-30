@@ -56,6 +56,9 @@ fun BookAppointmentScreen(
     var isSaving by remember { mutableStateOf(false) }
     var bookedSlots by remember { mutableStateOf(listOf<String>()) }
     var showConfirmDialog by remember { mutableStateOf(false) }
+    
+    // Track unavailable dates (when doctor marked themselves unavailable)
+    var unavailableDates by remember { mutableStateOf<List<String>>(emptyList()) }
 
     val db = remember { FirebaseFirestore.getInstance() }
 
@@ -68,6 +71,21 @@ fun BookAppointmentScreen(
         } catch (e: Exception) {
             Log.e("BookAppointment", "Failed to load patient profile", e)
         }
+    }
+    
+    // Load doctor's unavailable dates from users collection
+    LaunchedEffect(doctor.id) {
+        db.collection("users")
+            .whereEqualTo("humanId", doctor.id)
+            .whereEqualTo("role", "doctor")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val doc = snapshot.documents.firstOrNull()
+                if (doc != null) {
+                    @Suppress("UNCHECKED_CAST")
+                    unavailableDates = (doc.get("unavailableDates") as? List<String>) ?: emptyList()
+                }
+            }
     }
 
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy")
@@ -157,12 +175,43 @@ fun BookAppointmentScreen(
             item {
                 val dayName = selectedDate.dayOfWeek.name.lowercase(Locale.ROOT)
                 val canBook = availableDays.any { dayName.contains(it.take(3)) || it.contains(dayName.take(3)) }
+                
+                // Check if doctor marked this specific date as unavailable
+                val formattedSelectedDate = selectedDate.format(dateFormatter)
+                val isDoctorUnavailable = unavailableDates.contains(formattedSelectedDate)
 
                 if (!canBook) {
                     Text(
                         "Doctor not available on this day.",
                         color = Color.Red
                     )
+                } else if (isDoctorUnavailable) {
+                    // Doctor marked this date as unavailable
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Doctor Not Available",
+                            color = Color.Red,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Dr. ${doctor.firstName} ${doctor.lastName} has marked themselves unavailable for this date.",
+                            color = Color.Red.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Please select a different date.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 } else {
                     // --- Time slot picker ---
                     val slots = remember(selectedDate) { generateTimeSlots(timingStrings) }

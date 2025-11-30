@@ -1,6 +1,7 @@
 package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -259,6 +260,7 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                             UserRepository.cancelAppointment(app)
                             appointments.remove(app)
                             appointmentToCancel = null
+                            Toast.makeText(context, "Appointment cancelled", Toast.LENGTH_SHORT).show()
                         }
                     }
                 ) {

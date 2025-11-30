@@ -109,9 +109,10 @@ fun DoctorScheduleScreen(navController: NavController) {
             val today = LocalDate.now()
             val currentMinutes = LocalTime.now().let { it.hour * 60 + it.minute }
 
-            // Load all appointments for this doctor
+            // Load all booked appointments for this doctor (exclude cancelled)
             val snapshot = db.collection("appointments")
                 .whereEqualTo("doctorId", doctorId)
+                .whereEqualTo("status", "booked")
                 .get()
                 .await()
 
@@ -319,9 +320,10 @@ fun DoctorPastScheduleScreen(navController: NavController) {
             val today = LocalDate.now()
             val currentMinutes = LocalTime.now().let { it.hour * 60 + it.minute }
 
-            // Load all appointments for this doctor
+            // Load all booked appointments for this doctor (exclude cancelled)
             val snapshot = db.collection("appointments")
                 .whereEqualTo("doctorId", doctorId)
+                .whereEqualTo("status", "booked")
                 .get()
                 .await()
 

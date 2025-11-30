@@ -67,7 +67,38 @@ import com.example.patienttracker.auth.AuthManager
 import androidx.compose.foundation.layout.statusBars
 import com.example.patienttracker.ui.screens.doctor.DoctorBottomBar
 import com.example.patienttracker.ui.screens.patient.FavoritesScreen
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
 
+// Data class for cancellation notification
+data class CancellationNotification(
+    val id: String,
+    val doctorName: String,
+    val date: String,
+    val time: String,
+    val message: String
+)
+
+// Helper composable for detail rows in notification popup
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium
+        )
+        Text(
+            text = value,
+            color = Color(0xFFE53935),
+            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
 
 @Composable
 fun PatientHomeScreen(navController: NavController, context: Context) {
@@ -82,6 +113,113 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
     val lastNameArg = navController.currentBackStackEntry?.arguments?.getString("lastName")
         ?: navController.previousBackStackEntry?.savedStateHandle?.get<String>("lastName")
         ?: ""
+    
+    // Cancellation notification state
+    var showCancellationPopup by remember { mutableStateOf(false) }
+    var cancellationNotification by remember { mutableStateOf<CancellationNotification?>(null) }
+    val db = remember { FirebaseFirestore.getInstance() }
+    
+    // Check for unread cancellation notifications
+    LaunchedEffect(Unit) {
+        try {
+            val profile = AuthManager.getCurrentUserProfile()
+            val patientId = profile?.humanId ?: return@LaunchedEffect
+            
+            db.collection("notifications")
+                .whereEqualTo("patientId", patientId)
+                .whereEqualTo("type", "appointment_cancelled")
+                .whereEqualTo("read", false)
+                .limit(1)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val doc = snapshot.documents.firstOrNull()
+                    if (doc != null) {
+                        cancellationNotification = CancellationNotification(
+                            id = doc.id,
+                            doctorName = doc.getString("doctorName") ?: "Doctor",
+                            date = doc.getString("date") ?: "",
+                            time = doc.getString("time") ?: "",
+                            message = doc.getString("message") ?: "Your appointment has been cancelled."
+                        )
+                        showCancellationPopup = true
+                    }
+                }
+        } catch (e: Exception) {
+            // Ignore errors
+        }
+    }
+    
+    // Cancellation notification popup
+    if (showCancellationPopup && cancellationNotification != null) {
+        AlertDialog(
+            onDismissRequest = {
+                // Mark as read and dismiss
+                db.collection("notifications")
+                    .document(cancellationNotification!!.id)
+                    .update("read", true)
+                showCancellationPopup = false
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    "⚠️ Appointment Cancelled",
+                    color = Color(0xFFE53935),
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                )
+            },
+            text = {
+                Column {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        cancellationNotification!!.message,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    
+                    // Details card
+                    Surface(
+                        color = Color(0xFFE53935).copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            DetailRow("Doctor", cancellationNotification!!.doctorName)
+                            Spacer(Modifier.height(4.dp))
+                            DetailRow("Date", cancellationNotification!!.date)
+                            Spacer(Modifier.height(4.dp))
+                            DetailRow("Time", cancellationNotification!!.time)
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Please book a new appointment at your convenience.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        db.collection("notifications")
+                            .document(cancellationNotification!!.id)
+                            .update("read", true)
+                        showCancellationPopup = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CB7C2)
+                    )
+                ) {
+                    Text("I Understand", color = Color.White)
+                }
+            }
+        )
+    }
 
     Scaffold(
         bottomBar = {

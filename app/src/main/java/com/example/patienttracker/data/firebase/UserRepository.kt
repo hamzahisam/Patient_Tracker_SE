@@ -193,6 +193,7 @@ object UserRepository {
         val snapshot = FirebaseFirestore.getInstance()
             .collection("appointments")
             .whereEqualTo("patientId", patientId)
+            .whereEqualTo("status", "booked")  // Only get booked appointments, not cancelled
             .get()
             .await()
 

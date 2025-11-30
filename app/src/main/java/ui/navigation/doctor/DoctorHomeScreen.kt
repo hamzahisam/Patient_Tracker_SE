@@ -221,9 +221,10 @@ fun DoctorHomeScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            DoctorSchedule(
+            DoctorScheduleWithUnavailable(
                 gradient = gradient,
                 doctorId = resolvedId,
+                doctorName = "Dr. $resolvedFirst $resolvedLast",
                 navController = navController
             )
             
@@ -398,10 +399,11 @@ private fun QuickStatsSection(
         val formatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale)
         val todayKey = today.format(formatter)
         
-        // Fetch today's remaining appointments (exclude past appointments)
+        // Fetch today's remaining booked appointments (exclude past and cancelled)
         db.collection("appointments")
             .whereEqualTo("doctorId", doctorId)
             .whereEqualTo("date", todayKey)
+            .whereEqualTo("status", "booked")
             .get()
             .addOnSuccessListener { snap ->
                 val currentTime = LocalTime.now()
@@ -554,6 +556,378 @@ private fun StatCard(
     }
 }
 
+// ---------- Mark Not Available Section ----------
+@Composable
+private fun MarkNotAvailableSection(
+    doctorId: String,
+    doctorName: String,
+    selectedDate: LocalDate,
+    doctorDays: List<String>,
+    unavailableDates: List<String>,
+    isLoadingDoctorData: Boolean,
+    onUnavailableDateAdded: (String) -> Unit
+) {
+    val db = remember { FirebaseFirestore.getInstance() }
+    val today = LocalDate.now()
+    val locale = Locale.ENGLISH
+    // Use dayOfWeek.name for consistent matching (gives "MONDAY", "TUESDAY", etc.)
+    val selectedDayName = selectedDate.dayOfWeek.name.lowercase(Locale.ROOT)
+    val dateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale)
+    val selectedDateFormatted = selectedDate.format(dateFormatter)
+    val isSelectedDateInPast = selectedDate.isBefore(today)
+    val isSelectedDateToday = selectedDate == today
+    
+    // Local state for processing
+    var isProcessing by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    var appointmentsToCancel by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var showSuccessMessage by remember { mutableStateOf(false) }
+    var cancelledCount by remember { mutableStateOf(0) }
+    
+    // Check if selected date is a working day and not already marked unavailable
+    // Use take(3) for robust matching (e.g., "mon" matches "monday")
+    val isSelectedDayWorkingDay = doctorDays.any { 
+        selectedDayName.contains(it.take(3)) || it.contains(selectedDayName.take(3)) 
+    }
+    val isAlreadyUnavailable = unavailableDates.contains(selectedDateFormatted)
+    val canMarkUnavailable = isSelectedDayWorkingDay && !isAlreadyUnavailable && !isLoadingDoctorData && !isSelectedDateInPast
+    
+    // Dynamic title based on whether it's today or a future date
+    val dialogTitle = if (isSelectedDateToday) "Mark Unavailable for Today?" else "Mark Unavailable for $selectedDateFormatted?"
+    val buttonText = when {
+        isLoadingDoctorData -> "Loading..."
+        isSelectedDateInPast -> "Cannot Mark Past Date"
+        isAlreadyUnavailable -> "Already Marked Unavailable"
+        !isSelectedDayWorkingDay -> "Not a Working Day"
+        isProcessing -> "Processing..."
+        isSelectedDateToday -> "Mark Not Available for Today"
+        else -> "Mark Not Available"
+    }
+    
+    // Confirmation Dialog
+    if (showConfirmDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    dialogTitle,
+                    color = Color(0xFFE53935),
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "This will:",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "• Mark all time slots as unavailable for this date",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "• Cancel ${appointmentsToCancel.size} existing appointment(s)",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "• Notify affected patients",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Date: $selectedDateFormatted",
+                        color = Color(0xFFE53935),
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmDialog = false
+                        isProcessing = true
+                        
+                        // Step 1: Add selected date to unavailableDates
+                        db.collection("users")
+                            .whereEqualTo("humanId", doctorId)
+                            .whereEqualTo("role", "doctor")
+                            .get()
+                            .addOnSuccessListener { snapshot ->
+                                val docRef = snapshot.documents.firstOrNull()?.reference
+                                if (docRef != null) {
+                                    docRef.update("unavailableDates", com.google.firebase.firestore.FieldValue.arrayUnion(selectedDateFormatted))
+                                        .addOnSuccessListener {
+                                            onUnavailableDateAdded(selectedDateFormatted)
+                                            
+                                            // Step 2: Cancel all appointments for this date
+                                            if (appointmentsToCancel.isNotEmpty()) {
+                                                val batch = db.batch()
+                                                
+                                                for (appt in appointmentsToCancel) {
+                                                    val apptId = appt["id"] as? String ?: continue
+                                                    val patientId = appt["patientId"] as? String ?: ""
+                                                    val patientName = appt["patientName"] as? String ?: "Patient"
+                                                    val timing = appt["timing"] as? String ?: ""
+                                                    
+                                                    // Update appointment status to cancelled
+                                                    val apptRef = db.collection("appointments").document(apptId)
+                                                    batch.update(apptRef, mapOf(
+                                                        "status" to "cancelled",
+                                                        "cancelledBy" to "doctor",
+                                                        "cancellationReason" to "Doctor marked unavailable for the day"
+                                                    ))
+                                                    
+                                                    // Create cancellation notification for patient
+                                                    val notificationRef = db.collection("notifications").document()
+                                                    batch.set(notificationRef, mapOf(
+                                                        "patientId" to patientId,
+                                                        "doctorId" to doctorId,
+                                                        "doctorName" to doctorName,
+                                                        "type" to "appointment_cancelled",
+                                                        "title" to "Appointment Cancelled",
+                                                        "message" to "Your appointment with $doctorName on $selectedDateFormatted at $timing has been cancelled. The doctor is not available on this date.",
+                                                        "date" to selectedDateFormatted,
+                                                        "time" to timing,
+                                                        "read" to false,
+                                                        "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                                                    ))
+                                                }
+                                                
+                                                batch.commit()
+                                                    .addOnSuccessListener {
+                                                        cancelledCount = appointmentsToCancel.size
+                                                        isProcessing = false
+                                                        showSuccessMessage = true
+                                                    }
+                                                    .addOnFailureListener {
+                                                        isProcessing = false
+                                                    }
+                                            } else {
+                                                isProcessing = false
+                                                showSuccessMessage = true
+                                            }
+                                        }
+                                        .addOnFailureListener {
+                                            isProcessing = false
+                                        }
+                                } else {
+                                    isProcessing = false
+                                }
+                            }
+                            .addOnFailureListener {
+                                isProcessing = false
+                            }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE53935)
+                    )
+                ) {
+                    Text("Confirm", color = Color.White)
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showConfirmDialog = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        )
+    }
+    
+    // Success Message Dialog
+    if (showSuccessMessage) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showSuccessMessage = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    "Marked Unavailable",
+                    color = Color(0xFF4CB7C2),
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "You are now marked as unavailable for $selectedDateFormatted.",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (cancelledCount > 0) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "$cancelledCount appointment(s) have been cancelled and patients have been notified.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showSuccessMessage = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CB7C2)
+                    )
+                ) {
+                    Text("OK", color = Color.White)
+                }
+            }
+        )
+    }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        Button(
+            onClick = {
+                if (canMarkUnavailable) {
+                    // First, fetch appointments to cancel
+                    db.collection("appointments")
+                        .whereEqualTo("doctorId", doctorId)
+                        .whereEqualTo("date", selectedDateFormatted)
+                        .whereEqualTo("status", "booked")
+                        .get()
+                        .addOnSuccessListener { snapshot ->
+                            appointmentsToCancel = snapshot.documents.map { doc ->
+                                mapOf(
+                                    "id" to doc.id,
+                                    "patientId" to (doc.getString("patientId") ?: ""),
+                                    "patientName" to (doc.getString("patientFirstName") ?: "Patient"),
+                                    "timing" to (doc.getString("timing") ?: "")
+                                )
+                            }
+                            showConfirmDialog = true
+                        }
+                }
+            },
+            enabled = canMarkUnavailable && !isProcessing,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (canMarkUnavailable) Color(0xFFE53935) else Color.Gray.copy(alpha = 0.3f),
+                disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            if (isProcessing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                text = buttonText,
+                color = if (canMarkUnavailable) Color.White else Color.Gray,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        
+        if (!isLoadingDoctorData && isSelectedDayWorkingDay && !isAlreadyUnavailable && !isSelectedDateInPast) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (isSelectedDateToday) "This will cancel all today's appointments" else "This will cancel all appointments on $selectedDateFormatted",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFFE53935).copy(alpha = 0.7f),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+    }
+}
+
+// ---------- Schedule with Unavailable wrapper ----------
+@Composable
+private fun DoctorScheduleWithUnavailable(
+    gradient: Brush,
+    doctorId: String,
+    doctorName: String,
+    navController: NavController
+) {
+    val db = remember { FirebaseFirestore.getInstance() }
+    
+    // Shared selected date state - always start with today
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    
+    // Reset to today whenever this composable enters composition
+    // This handles the case when navigating back from other screens
+    LaunchedEffect(Unit) {
+        selectedDate = LocalDate.now()
+    }
+    
+    // Load doctor's working days and unavailable dates ONCE at this level
+    var doctorDays by remember { mutableStateOf<List<String>>(emptyList()) }
+    var unavailableDates by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isLoadingDoctorData by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(doctorId) {
+        if (doctorId.isBlank()) {
+            isLoadingDoctorData = false
+            return@LaunchedEffect
+        }
+        
+        db.collection("users")
+            .whereEqualTo("humanId", doctorId)
+            .whereEqualTo("role", "doctor")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val doc = snapshot.documents.firstOrNull()
+                if (doc != null) {
+                    val daysList = (doc.get("days") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                    doctorDays = daysList.map { it.trim().lowercase() }
+                    
+                    @Suppress("UNCHECKED_CAST")
+                    unavailableDates = (doc.get("unavailableDates") as? List<String>) ?: emptyList()
+                }
+                isLoadingDoctorData = false
+            }
+            .addOnFailureListener {
+                isLoadingDoctorData = false
+            }
+    }
+    
+    // Schedule section (day scroller + appointments list)
+    DoctorSchedule(
+        gradient = gradient,
+        doctorId = doctorId,
+        navController = navController,
+        selectedDate = selectedDate,
+        onSelectedDateChange = { newDate ->
+            selectedDate = newDate
+        }
+    )
+    
+    Spacer(Modifier.height(16.dp))
+    
+    // Mark Not Available button (uses selected date)
+    MarkNotAvailableSection(
+        doctorId = doctorId,
+        doctorName = doctorName,
+        selectedDate = selectedDate,
+        doctorDays = doctorDays,
+        unavailableDates = unavailableDates,
+        isLoadingDoctorData = isLoadingDoctorData,
+        onUnavailableDateAdded = { newDate ->
+            unavailableDates = unavailableDates + newDate
+        }
+    )
+}
+
 // ---------- Schedule (day scroller + list) ----------
 data class DayChip(val date: LocalDate, val day: String, val dow: String)
 
@@ -584,16 +958,29 @@ private fun generateDateChipsAroundToday(
 private fun DoctorSchedule(
     gradient: Brush,
     doctorId: String,
-    navController: NavController
+    navController: NavController,
+    selectedDate: LocalDate,
+    onSelectedDateChange: (LocalDate) -> Unit
 ) {
     val locale = Locale.getDefault()
     val (dates, todayIndex) = remember { generateDateChipsAroundToday(15, 15, locale) }
-    var selected by rememberSaveable { mutableIntStateOf(todayIndex) }
+    // Find the index matching the selectedDate
+    val selectedIndex = dates.indexOfFirst { it.date == selectedDate }.takeIf { it >= 0 } ?: todayIndex
+    var selected by rememberSaveable { mutableIntStateOf(selectedIndex) }
     var displayedMonth by remember { mutableStateOf(monthLabel(dates[todayIndex].date, locale)) }
     var appointmentsForDay by remember { mutableStateOf<List<Appointment>>(emptyList()) }
     var apptLoading by remember { mutableStateOf(false) }
     var apptError by remember { mutableStateOf<String?>(null) }
     val db = remember { FirebaseFirestore.getInstance() }
+    
+    // Sync internal selected state with external selectedDate
+    LaunchedEffect(selectedDate) {
+        val newIndex = dates.indexOfFirst { it.date == selectedDate }.takeIf { it >= 0 } ?: todayIndex
+        if (selected != newIndex) {
+            selected = newIndex
+            displayedMonth = monthLabel(dates[newIndex].date, locale)
+        }
+    }
 
     // Header (title + month)
     val accent = Color(0xFF4CB7C2)
@@ -649,6 +1036,7 @@ private fun DoctorSchedule(
                 onClick = {
                     selected = i
                     displayedMonth = monthLabel(dates[i].date, locale)
+                    onSelectedDateChange(dates[i].date)
                 }
             )
         }
@@ -677,6 +1065,7 @@ private fun DoctorSchedule(
             // 🔹 Match your Firestore field names
             .whereEqualTo("doctorId", doctorId)   // field is "doctorId" in your doc
             .whereEqualTo("date", dateKey)        // field is "date": "Monday, 17 Nov 2025"
+            .whereEqualTo("status", "booked")     // Only show booked, not cancelled
             .get()
             .addOnSuccessListener { snap ->
                 val list = snap.documents.map { doc ->
@@ -1135,6 +1524,7 @@ fun DoctorPatientsScreen(navController: NavController) {
 
             db.collection("appointments")
                 .whereEqualTo("doctorId", doctorId)
+                .whereEqualTo("status", "booked")
                 .get()
                 .addOnSuccessListener { snap ->
                     val grouped = snap.documents
