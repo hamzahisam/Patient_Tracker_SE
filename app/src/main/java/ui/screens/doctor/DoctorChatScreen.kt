@@ -54,10 +54,14 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CheckCircle
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Surface
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 import com.example.patienttracker.ui.screens.doctor.DoctorBottomBar
 
 private const val TAG = "DoctorChatScreen"
@@ -102,6 +106,10 @@ fun DoctorChatScreen(
     var inputText by remember { mutableStateOf("") }
     val scrollState = rememberLazyListState()
     val keyboardController = LocalSoftwareKeyboardController.current
+    
+    // Blocked state
+    var isPatientBlocked by remember { mutableStateOf(false) }
+    var showBlockConfirmDialog by remember { mutableStateOf(false) }
 
     // Load current doctor profile once
     LaunchedEffect(Unit) {
@@ -127,6 +135,36 @@ fun DoctorChatScreen(
         } else {
             ""
         }
+    }
+    
+    // Load blocked status
+    LaunchedEffect(conversationId) {
+        if (conversationId.isBlank()) return@LaunchedEffect
+        val db = FirebaseFirestore.getInstance()
+        db.collection("conversations")
+            .document(conversationId)
+            .addSnapshotListener { snapshot, _ ->
+                isPatientBlocked = snapshot?.getBoolean("patientBlocked") ?: false
+            }
+    }
+    
+    // Block/Unblock function
+    fun toggleBlockPatient() {
+        if (conversationId.isBlank()) return
+        val db = FirebaseFirestore.getInstance()
+        val newBlockedStatus = !isPatientBlocked
+        
+        db.collection("conversations")
+            .document(conversationId)
+            .set(mapOf("patientBlocked" to newBlockedStatus), com.google.firebase.firestore.SetOptions.merge())
+            .addOnSuccessListener {
+                isPatientBlocked = newBlockedStatus
+                val message = if (newBlockedStatus) "Patient blocked" else "Patient unblocked"
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener {
+                Toast.makeText(context, "Failed to update block status", Toast.LENGTH_SHORT).show()
+            }
     }
 
     // ✅ Attach Firestore listener only when conversationId is valid
@@ -266,9 +304,9 @@ fun DoctorChatScreen(
                             color = Color(0xFF4CB7C2)
                         )
                         Text(
-                            text = "Patient chat",
+                            text = if (isPatientBlocked) "Patient blocked" else "Patient chat",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (isPatientBlocked) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -277,6 +315,18 @@ fun DoctorChatScreen(
                         navController = navController,
                         modifier = Modifier
                     )
+                },
+                actions = {
+                    // Block/Unblock button
+                    TextButton(
+                        onClick = { showBlockConfirmDialog = true }
+                    ) {
+                        Text(
+                            text = if (isPatientBlocked) "Unblock" else "Block",
+                            color = if (isPatientBlocked) Color(0xFF4CB7C2) else Color(0xFFE53935),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -394,6 +444,54 @@ fun DoctorChatScreen(
                 }
             }
         }
+    }
+    
+    // Block/Unblock confirmation dialog
+    if (showBlockConfirmDialog) {
+        val decodedName = try {
+            java.net.URLDecoder.decode(patientName, "UTF-8")
+        } catch (e: Exception) {
+            patientName
+        }
+        val displayName = if (decodedName.isNotBlank()) decodedName else "this patient"
+        
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showBlockConfirmDialog = false },
+            title = {
+                Text(
+                    text = if (isPatientBlocked) "Unblock Patient" else "Block Patient",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = if (isPatientBlocked) 
+                        "Are you sure you want to unblock $displayName? They will be able to send messages and upload records again."
+                    else 
+                        "Are you sure you want to block $displayName? They will not be able to send messages or upload records until unblocked."
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        toggleBlockPatient()
+                        showBlockConfirmDialog = false
+                    }
+                ) {
+                    Text(
+                        text = if (isPatientBlocked) "Unblock" else "Block",
+                        color = if (isPatientBlocked) Color(0xFF4CAF50) else Color(0xFFE53935)
+                    )
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(
+                    onClick = { showBlockConfirmDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

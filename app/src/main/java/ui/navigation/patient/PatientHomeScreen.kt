@@ -1,6 +1,8 @@
 package com.example.patienttracker.ui.screens.patient
 
+import android.app.Activity
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -109,6 +111,22 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
         listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD))
     )
 
+    // Exit confirmation dialog state
+    var showExitDialog by remember { mutableStateOf(false) }
+    val activity = remember(context) {
+        var ctx = context
+        while (ctx is android.content.ContextWrapper) {
+            if (ctx is Activity) return@remember ctx
+            ctx = ctx.baseContext
+        }
+        null
+    }
+
+    // Handle back button press
+    BackHandler {
+        showExitDialog = true
+    }
+
     // Pull name from navigation arguments or saved state
     val firstNameArg = navController.currentBackStackEntry?.arguments?.getString("firstName")
         ?: navController.previousBackStackEntry?.savedStateHandle?.get<String>("firstName")
@@ -117,6 +135,54 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
         ?: navController.previousBackStackEntry?.savedStateHandle?.get<String>("lastName")
         ?: ""
     
+    // Exit confirmation dialog
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = {
+                Text(
+                    "Exit App",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Text(
+                    "Are you sure you want to quit?",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExitDialog = false
+                        if (activity != null) {
+                            activity.finishAffinity()
+                        } else {
+                            kotlin.system.exitProcess(0)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE53935)
+                    )
+                ) {
+                    Text("Yes, Exit", color = Color.White)
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showExitDialog = false },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CB7C2)
+                    )
+                ) {
+                    Text("Cancel", color = Color.White)
+                }
+            }
+        )
+    }
+
     // Cancellation notification state
     var showCancellationPopup by remember { mutableStateOf(false) }
     var cancellationNotification by remember { mutableStateOf<CancellationNotification?>(null) }
@@ -431,7 +497,7 @@ data class Category(val label: String, @DrawableRes val iconRes: Int)
 private fun CategoriesRow(items: List<Category>, onCategoryClick: (Category) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Text(
-            "Categories",
+            "Search Doctors",
             style = MaterialTheme.typography.titleMedium.copy(
                 color = Color(0xFF4CB7C2),
                 fontWeight = FontWeight.SemiBold

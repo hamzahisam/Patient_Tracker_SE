@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -126,6 +127,19 @@ fun ChatScreen(
     val scrollState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
+    
+    // Blocked state - check if doctor has blocked this patient
+    var isBlocked by remember { mutableStateOf(false) }
+    
+    // Load blocked status
+    LaunchedEffect(conversationId) {
+        if (conversationId.isBlank()) return@LaunchedEffect
+        Firebase.firestore.collection("conversations")
+            .document(conversationId)
+            .addSnapshotListener { snapshot, _ ->
+                isBlocked = snapshot?.getBoolean("patientBlocked") ?: false
+            }
+    }
 
     // 🔁 Live Firestore listener – keeps chat in sync
     DisposableEffect(conversationId) {
@@ -287,24 +301,43 @@ fun ChatScreen(
                 }
             }
 
-            // Message input
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Upload button - navigates to Reports screen for patients
-                IconButton(
-                    onClick = {
-                        navController.currentBackStackEntry?.savedStateHandle?.set("fromChat", true)
-                        navController.currentBackStackEntry?.savedStateHandle?.set("chatDoctorId", doctorId)
-                        navController.currentBackStackEntry?.savedStateHandle?.set("chatPatientId", patientId)
-                        navController.currentBackStackEntry?.savedStateHandle?.set("chatConversationId", conversationId)
-                        val doctorName = doctorUser?.let { "${it.firstName} ${it.lastName}" } ?: "Doctor"
-                        val encodedName = java.net.URLEncoder.encode(doctorName, "UTF-8")
-                        navController.navigate("patient_reports_screen/$doctorId/$encodedName")
-                    },
+            // Message input or Blocked message
+            if (isBlocked) {
+                // Show blocked message
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    color = Color(0xFFE53935).copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = "You have been blocked by this doctor. You cannot send messages or upload records.",
+                        color = Color(0xFFE53935),
+                        modifier = Modifier.padding(16.dp),
+                        textAlign = TextAlign.Center,
+                        style = TextStyle(fontSize = 14.sp)
+                    )
+                }
+            } else {
+                // Normal input row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Upload button - navigates to Reports screen for patients
+                    IconButton(
+                        onClick = {
+                            navController.currentBackStackEntry?.savedStateHandle?.set("fromChat", true)
+                            navController.currentBackStackEntry?.savedStateHandle?.set("chatDoctorId", doctorId)
+                            navController.currentBackStackEntry?.savedStateHandle?.set("chatPatientId", patientId)
+                            navController.currentBackStackEntry?.savedStateHandle?.set("chatConversationId", conversationId)
+                            val doctorName = doctorUser?.let { "${it.firstName} ${it.lastName}" } ?: "Doctor"
+                            val encodedName = java.net.URLEncoder.encode(doctorName, "UTF-8")
+                            navController.navigate("patient_reports_screen/$doctorId/$encodedName")
+                        },
                     enabled = patientId.isNotEmpty()
                 ) {
                     Icon(
@@ -388,7 +421,8 @@ fun ChatScreen(
                             MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
+                }
+            } // end of else block for isBlocked
         }
     }
 }

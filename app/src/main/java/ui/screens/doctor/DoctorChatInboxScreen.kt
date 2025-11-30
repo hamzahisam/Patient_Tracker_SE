@@ -35,6 +35,7 @@ data class DoctorConversation(
     val patientName: String = "",
     val lastMessage: String = "",
     val lastMessageTime: Long = 0L,
+    val isBlocked: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -138,6 +139,27 @@ fun DoctorChatInboxScreen(
                                     lastMessage = text,
                                     lastMessageTime = ts
                                 )
+
+                                conversations = map.values
+                                    .sortedWith(
+                                        compareByDescending<DoctorConversation> { it.lastMessageTime }
+                                            .thenBy { it.patientName }
+                                    )
+                            }
+
+                        // Listen for blocked status
+                        db.collection("conversations")
+                            .document(conversationId)
+                            .addSnapshotListener { convSnap, convErr ->
+                                if (convErr != null) {
+                                    Log.w(TAG, "Conversation listener error for $conversationId", convErr)
+                                    return@addSnapshotListener
+                                }
+
+                                val isBlocked = convSnap?.getBoolean("patientBlocked") ?: false
+
+                                val existing = map[patientId] ?: base
+                                map[patientId] = existing.copy(isBlocked = isBlocked)
 
                                 conversations = map.values
                                     .sortedWith(
@@ -266,11 +288,24 @@ private fun PatientChatRow(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            Text(
-                text = conversation.patientName,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = conversation.patientName,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (conversation.isBlocked) {
+                    Text(
+                        text = "Blocked",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color.Red
+                    )
+                }
+            }
             if (conversation.lastMessage.isNotBlank()) {
                 Spacer(Modifier.height(4.dp))
                 Text(

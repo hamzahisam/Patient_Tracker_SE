@@ -44,6 +44,10 @@ import com.example.patienttracker.ui.screens.patient.PatientBottomBar
 import java.io.File
 import java.io.Serializable
 
+// Maximum file upload size: 10MB
+private const val MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024L // 10MB
+private const val MAX_FILE_SIZE_MB = 10
+
 data class MedicalRecord(
     val id: String = "",
     val patientId: String = "",
@@ -126,7 +130,8 @@ fun PatientReportsScreen(
     }
 
 // Only allow uploads for the right role + collection
-    val effectiveCanUpload = remember(canUpload, currentRole, collection) {
+    // Note: isBlockedByDoctor check is applied below after we load the blocked status
+    val baseCanUpload = remember(canUpload, currentRole, collection) {
         when (collection) {
             // patients upload their own lab reports / scans
             "records" -> canUpload && currentRole == "patient"
@@ -136,12 +141,37 @@ fun PatientReportsScreen(
             else -> false
         }
     }
+    
+    // Blocked state - check if patient is blocked by doctor
+    var isBlockedByDoctor by remember { mutableStateOf(false) }
+    
+    // Final upload permission: base permission AND not blocked (for patients)
+    val effectiveCanUpload = baseCanUpload && !(currentRole == "patient" && isBlockedByDoctor)
 
     var patientId by remember { mutableStateOf<String?>(null) }
     var records by remember { mutableStateOf<List<MedicalRecord>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var recordPendingDelete by remember { mutableStateOf<MedicalRecord?>(null) }
+    
+    // Load blocked status - needs patientId to be loaded first
+    LaunchedEffect(patientId, chatConversationId, doctorIdFilter) {
+        val pid = patientId ?: return@LaunchedEffect
+        
+        // Build conversation ID: use chatConversationId if from chat, otherwise construct from doctorIdFilter and patientId
+        val conversationId = chatConversationId.ifBlank { 
+            if (doctorIdFilter.isNotBlank()) {
+                "${doctorIdFilter}_${pid}"
+            } else ""
+        }
+        if (conversationId.isBlank()) return@LaunchedEffect
+        
+        db.collection("conversations")
+            .document(conversationId)
+            .addSnapshotListener { snapshot, _ ->
+                isBlockedByDoctor = snapshot?.getBoolean("patientBlocked") ?: false
+            }
+    }
 
     // ---------- Load current patientId & records ----------
     LaunchedEffect(Unit) {
@@ -224,6 +254,16 @@ fun PatientReportsScreen(
             return@rememberLauncherForActivityResult
         }
 
+        // Check file size limit (10MB)
+        if (bytes.size > MAX_FILE_SIZE_BYTES) {
+            Toast.makeText(
+                context,
+                "File size exceeds ${MAX_FILE_SIZE_MB}MB limit. Please select a smaller file.",
+                Toast.LENGTH_LONG
+            ).show()
+            return@rememberLauncherForActivityResult
+        }
+
         // Use doctorIdFilter for scoping document to specific doctor-patient relationship
         // For chat uploads, use chatDoctorId as fallback
         val effectiveDoctorId = doctorIdFilter.ifBlank { chatDoctorId }
@@ -289,6 +329,16 @@ fun PatientReportsScreen(
 
         if (bytes == null) {
             Toast.makeText(context, "Cannot read selected file.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // Check file size limit (10MB)
+        if (bytes.size > MAX_FILE_SIZE_BYTES) {
+            Toast.makeText(
+                context,
+                "File size exceeds ${MAX_FILE_SIZE_MB}MB limit. Please select a smaller file.",
+                Toast.LENGTH_LONG
+            ).show()
             return
         }
 
