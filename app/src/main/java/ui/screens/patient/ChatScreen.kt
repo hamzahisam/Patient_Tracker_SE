@@ -267,7 +267,12 @@ fun ChatScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {
+                            keyboardController?.hide()
+                        })
+                    },
                 state = scrollState,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)

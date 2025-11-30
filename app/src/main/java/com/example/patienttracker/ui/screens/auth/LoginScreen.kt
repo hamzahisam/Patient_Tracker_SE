@@ -255,7 +255,7 @@ fun LoginScreen(
                                 Spacer(Modifier.width(12.dp))
                                 Text(
                                     text = "Continue with Google",
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onBackground,
                                     fontSize = 16.sp
                                 )
                             }
@@ -290,7 +290,7 @@ fun LoginScreen(
                                 Spacer(Modifier.width(12.dp))
                                 Text(
                                     text = "Continue with Facebook",
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onBackground,
                                     fontSize = 16.sp
                                 )
                             }
@@ -368,7 +368,7 @@ private fun GhostButton(
     onClick: () -> Unit
 ) {
     val borderColor = Color(0xFF4CB7C2)
-    val bgDark = Color(0xFF15181E) // card-like dark grey
+    val bgColor = MaterialTheme.colorScheme.surface
 
     Button(
         onClick = onClick,
@@ -378,7 +378,7 @@ private fun GhostButton(
         shape = RoundedCornerShape(28.dp),
         contentPadding = PaddingValues(),
         colors = ButtonDefaults.buttonColors(
-            containerColor = bgDark,
+            containerColor = bgColor,
             contentColor = borderColor
         ),
         elevation = ButtonDefaults.buttonElevation(
@@ -391,7 +391,7 @@ private fun GhostButton(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    color = bgDark,
+                    color = bgColor,
                     shape = RoundedCornerShape(28.dp)
                 )
                 .border(
@@ -404,7 +404,7 @@ private fun GhostButton(
             Text(
                 text = text,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = Color(0xFFE5E7EB) // light grey text
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }

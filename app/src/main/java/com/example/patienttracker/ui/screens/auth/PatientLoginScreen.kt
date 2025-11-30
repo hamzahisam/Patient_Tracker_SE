@@ -171,17 +171,17 @@ fun PatientLoginScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFF11151A),
-                        unfocusedContainerColor = Color(0xFF11151A),
-                        disabledContainerColor = Color(0xFF11151A),
-                        errorContainerColor = Color(0xFF11151A),
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
+                        errorContainerColor = MaterialTheme.colorScheme.surface,
 
                         focusedIndicatorColor = Color(0xFF4CB7C2),
                         unfocusedIndicatorColor = Color(0xFF4CB7C2).copy(alpha = 0.5f),
                         cursorColor = Color(0xFF4CB7C2),
 
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
 
                         focusedLabelColor = Color(0xFF4CB7C2),
                         unfocusedLabelColor = Color(0xFF9CA3AF)
@@ -207,17 +207,17 @@ fun PatientLoginScreen(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFF11151A),
-                        unfocusedContainerColor = Color(0xFF11151A),
-                        disabledContainerColor = Color(0xFF11151A),
-                        errorContainerColor = Color(0xFF11151A),
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
+                        errorContainerColor = MaterialTheme.colorScheme.surface,
 
                         focusedIndicatorColor = Color(0xFF4CB7C2),
                         unfocusedIndicatorColor = Color(0xFF4CB7C2).copy(alpha = 0.5f),
                         cursorColor = Color(0xFF4CB7C2),
 
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
 
                         focusedLabelColor = Color(0xFF4CB7C2),
                         unfocusedLabelColor = Color(0xFF9CA3AF)
@@ -408,7 +408,7 @@ fun PatientLoginScreen(
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = "Continue with Google",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 16.sp
                         )
                     }
@@ -443,7 +443,7 @@ fun PatientLoginScreen(
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = "Continue with Facebook",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onBackground,
                             fontSize = 16.sp
                         )
                     }

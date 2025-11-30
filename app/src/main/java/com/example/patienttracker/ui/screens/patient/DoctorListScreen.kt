@@ -3,6 +3,7 @@ package com.example.patienttracker.ui.screens.patient
 import android.content.Context
 import android.os.Parcelable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
@@ -235,12 +237,18 @@ fun DoctorListScreen(
         },
         bottomBar = { PatientBottomBar(navController) }
     ) { inner ->
+        val keyboardController = LocalSoftwareKeyboardController.current
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
                 .imePadding()
-                .background(MaterialTheme.colorScheme.background) // FIX 1: Changed from hardcoded to theme
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = {
+                        keyboardController?.hide()
+                    })
+                }
+                .background(MaterialTheme.colorScheme.background)
         ) {
             // Search Bar with Date and Time filters
             Row(
@@ -564,13 +572,13 @@ fun SearchBar(
             }
         ),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.background, // FIX 3: Changed from hardcoded to theme
-            unfocusedContainerColor = MaterialTheme.colorScheme.background, // FIX 3: Changed from hardcoded to theme
-            disabledContainerColor = MaterialTheme.colorScheme.background, // FIX 3: Changed from hardcoded to theme
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            disabledContainerColor = MaterialTheme.colorScheme.surface,
             focusedIndicatorColor = Color(0xFF4CB7C2),
             unfocusedIndicatorColor = Color(0xFFB9E3E7),
-            focusedTextColor = Color(0xFF1C3D5A),
-            unfocusedTextColor = Color(0xFF1C3D5A)
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
         ),
         shape = RoundedCornerShape(16.dp)
     )

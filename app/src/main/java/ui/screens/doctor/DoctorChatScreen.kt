@@ -293,7 +293,6 @@ fun DoctorChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .imePadding()
                 .background(MaterialTheme.colorScheme.background)
         ) {
             // Messages list

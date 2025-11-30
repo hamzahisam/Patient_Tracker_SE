@@ -43,7 +43,6 @@ fun DoctorLoginScreen(
     context: Context
 ) {
     val accentBlue = Color(0xFF4CB7C2)
-    val boxBackground = Color(0xFF11151A)
 
     var idOrEmail by remember { mutableStateOf("") }  // humanId like 000001 OR email
     var password by remember { mutableStateOf("") }
@@ -129,18 +128,18 @@ fun DoctorLoginScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = boxBackground,
-                        unfocusedContainerColor = boxBackground,
-                        disabledContainerColor = boxBackground,
-                        errorContainerColor = boxBackground,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
+                        errorContainerColor = MaterialTheme.colorScheme.surface,
 
                         focusedIndicatorColor = accentBlue,
                         unfocusedIndicatorColor = accentBlue.copy(alpha = 0.6f),
                         disabledIndicatorColor = accentBlue.copy(alpha = 0.3f),
                         errorIndicatorColor = Color.Red,
 
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
 
                         cursorColor = accentBlue,
                         focusedLabelColor = accentBlue,
@@ -169,18 +168,18 @@ fun DoctorLoginScreen(
                         }
                     },
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = boxBackground,
-                        unfocusedContainerColor = boxBackground,
-                        disabledContainerColor = boxBackground,
-                        errorContainerColor = boxBackground,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        disabledContainerColor = MaterialTheme.colorScheme.surface,
+                        errorContainerColor = MaterialTheme.colorScheme.surface,
 
                         focusedIndicatorColor = accentBlue,
                         unfocusedIndicatorColor = accentBlue.copy(alpha = 0.6f),
                         disabledIndicatorColor = accentBlue.copy(alpha = 0.3f),
                         errorIndicatorColor = Color.Red,
 
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
 
                         cursorColor = accentBlue,
                         focusedLabelColor = accentBlue,

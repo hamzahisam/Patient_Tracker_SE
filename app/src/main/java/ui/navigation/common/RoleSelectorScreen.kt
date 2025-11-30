@@ -20,7 +20,7 @@ import com.example.patienttracker.R
 @Composable
 fun RoleSelectorScreen(onRoleSelected: (String) -> Unit) {
     val accentBlue = Color(0xFF4CB7C2)
-    val cardBackground = Color(0xFF14171C)
+    val cardBackground = MaterialTheme.colorScheme.surface
 
     Box(
         modifier = Modifier
@@ -109,7 +109,7 @@ private fun RoleSelectorCard(
                 text = title,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFE5E5E5)
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
